@@ -1,0 +1,42 @@
+name: pnas-manager
+
+services:
+  pnas-manager:
+    build:
+      context: ../..
+      dockerfile: compose/manager/Dockerfile
+    image: localhost/pnas-manager:0.1.0
+    restart: unless-stopped
+    environment:
+      PNAS_MANAGER_PASSWORD_HASH_FILE: /run/secrets/manager_password_hash
+      PNAS_MANAGER_SESSION_KEY_FILE: /run/secrets/manager_session_key
+      PNAS_MANAGER_TOTP_SECRET_FILE: /run/secrets/manager_totp_secret
+      PNAS_MANAGER_STATE: /var/lib/pnas/manager.sqlite3
+      PNAS_MANAGER_ALLOWED_NETWORKS: ${PNAS_MANAGER_ALLOWED_NETWORKS:?exact proxy subnet required}
+      PNAS_MANAGER_TRUSTED_PROXY_NETWORKS: ${PNAS_MANAGER_TRUSTED_PROXY_NETWORKS:?exact proxy subnet required}
+      PNAS_MANAGER_HEALTH_MODE: ${PNAS_MANAGER_HEALTH_MODE:-mock}
+      PNAS_CONFIG_FILE: /run/config/pnas.yaml
+      PNAS_TAILSCALE_STATUS_FILE: /run/observations/tailscale-status.json
+    secrets: [manager_password_hash, manager_session_key, manager_totp_secret, truenas_api_token]
+    volumes:
+      - ${MANAGER_STATE_PATH:?set MANAGER_STATE_PATH}:/var/lib/pnas
+      - ${PNAS_CONFIG_FILE:?validated pnas.yaml}:/run/config/pnas.yaml:ro
+      - ${TAILSCALE_STATUS_FILE:-/dev/null}:/run/observations/tailscale-status.json:ro
+    networks: [pnas_management]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+networks:
+  pnas_management: {external: true, name: pnas_management}
+
+secrets:
+  manager_password_hash:
+    file: "${MANAGER_PASSWORD_HASH_FILE:?set secret file}"
+  manager_session_key:
+    file: "${MANAGER_SESSION_KEY_FILE:?set secret file}"
+  manager_totp_secret:
+    file: "${MANAGER_TOTP_SECRET_FILE:?set secret file}"
+  truenas_api_token:
+    file: "${TRUENAS_API_TOKEN_FILE:?set read-only API token file}"

@@ -1,0 +1,93 @@
+name: pnas-nextcloud
+
+services:
+  nextcloud:
+    image: nextcloud:34.0.2-apache
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: nextcloud-db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD_FILE: /run/secrets/nextcloud_db_password
+      REDIS_HOST: nextcloud-redis
+      REDIS_HOST_PASSWORD_FILE: /run/secrets/nextcloud_redis_password
+      PHP_UPLOAD_LIMIT: 10G
+      PHP_MEMORY_LIMIT: 1024M
+      TRUSTED_PROXIES: 172.30.0.0/24
+      OVERWRITEPROTOCOL: https
+    secrets: [nextcloud_db_password, nextcloud_redis_password]
+    volumes:
+      - ${NEXTCLOUD_CONFIG_PATH:?set NEXTCLOUD_CONFIG_PATH}:/var/www/html/config
+      - ${NEXTCLOUD_DATA_PATH:?set NEXTCLOUD_DATA_PATH}:/var/www/html/data
+      - ${NEXTCLOUD_APPS_PATH:?set NEXTCLOUD_APPS_PATH}:/var/www/html/custom_apps
+    networks: [backend, pnas_private]
+    depends_on:
+      nextcloud-db: {condition: service_healthy}
+      nextcloud-redis: {condition: service_healthy}
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+
+  nextcloud-cron:
+    image: nextcloud:34.0.2-apache
+    restart: unless-stopped
+    entrypoint: /cron.sh
+    environment:
+      POSTGRES_HOST: nextcloud-db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD_FILE: /run/secrets/nextcloud_db_password
+      REDIS_HOST: nextcloud-redis
+      REDIS_HOST_PASSWORD_FILE: /run/secrets/nextcloud_redis_password
+    secrets: [nextcloud_db_password, nextcloud_redis_password]
+    volumes:
+      - ${NEXTCLOUD_CONFIG_PATH:?set NEXTCLOUD_CONFIG_PATH}:/var/www/html/config
+      - ${NEXTCLOUD_DATA_PATH:?set NEXTCLOUD_DATA_PATH}:/var/www/html/data
+      - ${NEXTCLOUD_APPS_PATH:?set NEXTCLOUD_APPS_PATH}:/var/www/html/custom_apps
+    networks: [backend]
+    depends_on:
+      nextcloud-db: {condition: service_healthy}
+      nextcloud-redis: {condition: service_healthy}
+    security_opt: [no-new-privileges:true]
+
+  nextcloud-db:
+    image: postgres:17.10-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD_FILE: /run/secrets/nextcloud_db_password
+    secrets: [nextcloud_db_password]
+    volumes:
+      - ${NEXTCLOUD_DB_PATH:?set NEXTCLOUD_DB_PATH}:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U nextcloud -d nextcloud"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    security_opt: [no-new-privileges:true]
+
+  nextcloud-redis:
+    image: redis:8.8.1-alpine
+    restart: unless-stopped
+    command: ["/bin/sh", "-c", "exec redis-server --requirepass \"$$(cat /run/secrets/nextcloud_redis_password)\""]
+    secrets: [nextcloud_redis_password]
+    networks: [backend]
+    healthcheck:
+      test: [CMD-SHELL, "redis-cli -a \"$$(cat /run/secrets/nextcloud_redis_password)\" ping | grep PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+networks:
+  backend: {internal: true}
+  pnas_private: {external: true, name: pnas_private}
+
+secrets:
+  nextcloud_db_password:
+    file: "${NEXTCLOUD_DB_PASSWORD_FILE:?set secret file}"
+  nextcloud_redis_password:
+    file: "${NEXTCLOUD_REDIS_PASSWORD_FILE:?set secret file}"

@@ -1,0 +1,45 @@
+# Declarative scenarios used by tests and the mock inventory builder.
+profiles:
+  four-4tb:
+    data_drive_count: 4
+    drive_capacity_bytes: 4000000000000
+  eight-4tb:
+    data_drive_count: 8
+    drive_capacity_bytes: 4000000000000
+  four-8tb:
+    data_drive_count: 4
+    drive_capacity_bytes: 8000000000000
+  eight-8tb:
+    data_drive_count: 8
+    drive_capacity_bytes: 8000000000000
+  mixed-capacities:
+    capacities_bytes: [4000000000000, 4000000000000, 8000000000000, 8000000000000]
+  failed-smart:
+    data_drive_count: 4
+    drive_capacity_bytes: 4000000000000
+    failed_smart_serial: DATA001
+  missing-serial:
+    data_drive_count: 4
+    drive_capacity_bytes: 4000000000000
+    missing_serial_bay: 1
+  boot-in-selection:
+    data_drive_count: 4
+    drive_capacity_bytes: 4000000000000
+    selection_includes: BOOTSSD001
+  application-ssd-in-selection:
+    data_drive_count: 4
+    drive_capacity_bytes: 4000000000000
+    selection_includes: APPSSD001
+  degraded-pool:
+    data_drive_count: 8
+    drive_capacity_bytes: 4000000000000
+    pool_healthy: false
+  phase2-expansion:
+    data_drive_count: 8
+    assigned_data_drive_count: 4
+    drive_capacity_bytes: 8000000000000
+    database_dumps_current: true
+    snapshots_current: true
+    offsite_backup_current: true
+    restore_test_recent: true
+    burn_in_passed: true

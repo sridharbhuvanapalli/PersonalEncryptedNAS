@@ -1,0 +1,6 @@
+profiles:
+  phase1-4tb: {drive_count: 4, drive_capacity_tb: 4, vdev_count: 1}
+  final-4tb: {drive_count: 8, drive_capacity_tb: 4, vdev_count: 2}
+  phase1-8tb: {drive_count: 4, drive_capacity_tb: 8, vdev_count: 1}
+  final-8tb: {drive_count: 8, drive_capacity_tb: 8, vdev_count: 2}
+

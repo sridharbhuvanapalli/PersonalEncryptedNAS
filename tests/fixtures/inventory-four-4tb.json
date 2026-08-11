@@ -1,0 +1,25 @@
+{
+  "inventory_id": "fixture-four-4tb",
+  "captured_at": "2026-08-06T12:00:00Z",
+  "hostname": "truenas-mock",
+  "truenas_version": "25.10.4",
+  "api_version": "25.10.4",
+  "cpu_model": "Intel Core i5-12500",
+  "aes_supported": true,
+  "memory_bytes": 34359738368,
+  "nic_model": "Intel I225-V",
+  "nic_link_mbps": 2500,
+  "ups_connected": true,
+  "pool_healthy": true,
+  "scrub_succeeded": true,
+  "resilver_active": false,
+  "drives": [
+    {"bay": null, "model": "Boot SSD", "serial": "BOOTSSD001", "stable_id": "/dev/disk/by-id/ata-BOOTSSD001", "capacity_bytes": 256000000000, "rotational": false, "transport": "sata", "cmr": null, "smart": "passed", "smart_extended_passed": true, "role": "boot"},
+    {"bay": null, "model": "Application SSD", "serial": "APPSSD001", "stable_id": "/dev/disk/by-id/ata-APPSSD001", "capacity_bytes": 1000000000000, "rotational": false, "transport": "nvme", "cmr": null, "smart": "passed", "smart_extended_passed": true, "role": "application"},
+    {"bay": 1, "model": "NAS CMR 4TB", "serial": "DATA4T001", "stable_id": "/dev/disk/by-id/ata-DATA4T001", "capacity_bytes": 4000000000000, "cmr": true, "smart": "passed", "smart_extended_passed": true, "temperature_c": 31, "power_on_hours": 24, "role": "data"},
+    {"bay": 2, "model": "NAS CMR 4TB", "serial": "DATA4T002", "stable_id": "/dev/disk/by-id/ata-DATA4T002", "capacity_bytes": 4000000000000, "cmr": true, "smart": "passed", "smart_extended_passed": true, "temperature_c": 32, "power_on_hours": 24, "role": "data"},
+    {"bay": 3, "model": "NAS CMR 4TB", "serial": "DATA4T003", "stable_id": "/dev/disk/by-id/ata-DATA4T003", "capacity_bytes": 4000000000000, "cmr": true, "smart": "passed", "smart_extended_passed": true, "temperature_c": 30, "power_on_hours": 24, "role": "data"},
+    {"bay": 4, "model": "NAS CMR 4TB", "serial": "DATA4T004", "stable_id": "/dev/disk/by-id/ata-DATA4T004", "capacity_bytes": 4000000000000, "cmr": true, "smart": "passed", "smart_extended_passed": true, "temperature_c": 33, "power_on_hours": 24, "role": "data"}
+  ]
+}
+

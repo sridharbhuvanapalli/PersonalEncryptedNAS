@@ -1,0 +1,32 @@
+name: pnas-private-dns
+
+services:
+  dns-lan:
+    image: coredns/coredns:1.14.6
+    restart: unless-stopped
+    command: ["-conf", "/etc/coredns/Corefile"]
+    ports:
+      - ${PNAS_SERVICE_LAN_BIND_IP:?private service LAN IP}:53:53/tcp
+      - ${PNAS_SERVICE_LAN_BIND_IP:?private service LAN IP}:53:53/udp
+    volumes:
+      - ${COREDNS_LAN_COREFILE:?generated LAN Corefile}:/etc/coredns/Corefile:ro
+      - ${COREDNS_LAN_ZONE:?generated LAN zone}:/etc/coredns/db.lan:ro
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+
+  dns-tailscale:
+    image: coredns/coredns:1.14.6
+    restart: unless-stopped
+    command: ["-conf", "/etc/coredns/Corefile"]
+    ports:
+      - ${PNAS_TAILSCALE_BIND_IP:?Tailscale IP}:53:53/tcp
+      - ${PNAS_TAILSCALE_BIND_IP:?Tailscale IP}:53:53/udp
+    volumes:
+      - ${COREDNS_TAILSCALE_COREFILE:?generated Tailscale Corefile}:/etc/coredns/Corefile:ro
+      - ${COREDNS_TAILSCALE_ZONE:?generated Tailscale zone}:/etc/coredns/db.tailscale:ro
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]

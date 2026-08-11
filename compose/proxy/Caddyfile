@@ -1,0 +1,39 @@
+{
+  admin off
+  auto_https disable_redirects
+}
+
+cloud.home.arpa {
+  tls internal
+  encode zstd gzip
+  reverse_proxy nextcloud:80
+  request_body { max_size 10GB }
+  header {
+    Strict-Transport-Security "max-age=31536000"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "SAMEORIGIN"
+    Referrer-Policy "no-referrer"
+  }
+}
+
+photos.home.arpa {
+  tls internal
+  encode zstd gzip
+  reverse_proxy immich-server:2283
+  header {
+    Strict-Transport-Security "max-age=31536000"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+  }
+}
+
+nas-admin.home.arpa {
+  tls internal
+  reverse_proxy pnas-manager:8000
+  header {
+    Strict-Transport-Security "max-age=31536000"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "no-referrer"
+  }
+}

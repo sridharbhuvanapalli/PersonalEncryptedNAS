@@ -1,0 +1,23 @@
+# Hardware deployment validation
+
+Software and mock validation do not make the NAS production-ready. Before storing the
+only copy of family data, perform and record:
+
+- component inventory, CMR verification, SMART long tests, and destructive burn-in;
+- real API method/schema probes against the installed TrueNAS version;
+- Phase 1 pool creation on explicitly confirmed serials;
+- dataset key export, offline storage, lock/unlock, and reboot behavior;
+- snapshot single-file recovery and both database restores;
+- Restic selected-file and full-loss recovery exercises;
+- simulated single- and double-disk failure/replacement/resilver procedures;
+- scrub alerts, failed SMART alerts, and capacity thresholds;
+- UPS communication, low-battery shutdown, and clean restart;
+- private HTTPS trust and renewal on every client type;
+- LAN access during ISP outage and remote Tailscale ACL checks;
+- proof that router/public scans cannot reach services;
+- one application update and supported rollback;
+- Phase 2 rehearsal with a changed-inventory rejection.
+
+Production readiness is granted only after evidence for every applicable item is
+stored with the offline recovery documentation.
+

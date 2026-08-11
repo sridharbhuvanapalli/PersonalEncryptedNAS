@@ -1,0 +1,82 @@
+system:
+  name: family-nas
+  environment: home
+  timezone: America/New_York
+
+truenas:
+  url: https://truenas.local
+  verify_tls: true
+  api_version: auto
+  username: pnas-automation
+  credential_file: /run/secrets/truenas_api_token
+  adapter: mock
+
+storage:
+  chassis_bays: 8
+  deployment_phase: 1
+  expected_drive_count: 4
+  drive_capacity_tb: null
+  pool_name: tank
+  vdev_layout: raidz2
+  vdev_width: 4
+  expected_final_vdev_count: 2
+  maximum_utilization_percent: 80
+  warning_utilization_percent: 70
+  require_cmr: true
+  require_smart_extended_test: true
+  require_serial_confirmation: true
+  allow_asymmetric_vdev: false
+  application_device_serials: [APPSSD001]
+  boot_device_serials: [BOOTSSD001]
+
+applications:
+  nextcloud: {enabled: true}
+  immich: {enabled: true}
+  tailscale: {enabled: true}
+  reverse_proxy: {enabled: true}
+
+remote_access:
+  tailscale:
+    enabled: true
+    deployment: truenas-app
+    hostname: family-nas
+    device_tag: tag:nas
+    private_dns_suffix: nas.cloudpathz.com
+    host_network: true
+    userspace_networking: false
+    accept_dns: false
+    advertise_exit_node: false
+    funnel: false
+    public_ingress: false
+    router_port_forwarding: false
+    require_device_approval: true
+
+backup:
+  provider: backblaze-b2
+  critical_data_target_tb: 2
+  retention: {daily: 30, weekly: 12, monthly: 12}
+
+hosting:
+  enabled: false
+  exposure: private
+  base_domain: nas.cloudpathz.com
+  services:
+    nextcloud: cloud.nas.cloudpathz.com
+    immich: photos.nas.cloudpathz.com
+    manager: ops.nas.cloudpathz.com
+  private_addresses:
+    management_lan: 192.168.1.10
+    lan: 192.168.1.20
+    tailscale: null
+  dns:
+    provider: manual
+    zone: cloudpathz.com
+    credential_file: null
+    manage_public_service_records: false
+    rfc2136_server: null
+    rfc2136_key_name: null
+    rfc2136_key_algorithm: hmac-sha256
+  certificates:
+    issuer: letsencrypt
+    email: admin@example.invalid
+    environment: staging

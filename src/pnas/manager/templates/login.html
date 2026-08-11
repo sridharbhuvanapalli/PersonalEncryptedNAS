@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>NAS Manager Login</title></head>
+<body>
+  <main>
+    <h1>Personal NAS Operations Manager</h1>
+    {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/login">
+      <label>Administrator password <input type="password" name="password" required autocomplete="current-password"></label>
+      <label>Authenticator code <input name="totp" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code"></label>
+      <button type="submit">Sign in</button>
+    </form>
+  </main>
+</body>
+</html>
+

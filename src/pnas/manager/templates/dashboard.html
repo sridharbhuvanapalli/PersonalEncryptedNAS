@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Personal NAS Status</title></head>
+<body>
+  <header>
+    <h1>Personal NAS Status</h1><strong>Read-only by default</strong>
+    <p>Mode: {{ snapshot.mode }} · Captured: {{ snapshot.captured_at }}{% if snapshot.stale %} · STALE{% endif %}</p>
+  </header>
+  <main>
+    {% for warning in snapshot.warnings %}<p role="alert">{{ warning }}</p>{% endfor %}
+    <section><h2>Storage</h2><pre>{{ snapshot.storage | tojson(indent=2) }}</pre></section>
+    <section><h2>Disks</h2><pre>{{ snapshot.disks | tojson(indent=2) }}</pre></section>
+    <section><h2>Data protection</h2><pre>{{ snapshot.protection | tojson(indent=2) }}</pre></section>
+    <section><h2>Services</h2><pre>{{ snapshot.services | tojson(indent=2) }}</pre></section>
+    <section><h2>Power and updates</h2><pre>{{ {"power": snapshot.power, "updates": snapshot.updates} | tojson(indent=2) }}</pre></section>
+  </main>
+  <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form>
+</body>
+</html>
