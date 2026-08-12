@@ -19,12 +19,27 @@ Restore a named file from `latest` into a new empty directory, compare its size 
 cryptographic hash with the source record, open it where appropriate, then record the
 snapshot ID, file, date, and result. Never restore tests over production paths.
 
+## Apps and local recovery pools
+
+- `apps` initially resides on the single TN320 1 TB NVMe and later becomes a two-NVMe
+  mirror. Mirroring improves device availability but does not replace backups.
+- `app-recovery` is the independent Inland 512 GB SATA pool. It contains recent database
+  dumps, application configuration exports, and hosting revisions, not the only originals.
+- If the initial single-device `apps` pool fails, recreate `apps`, restore configuration
+  and databases from verified `app-recovery` or offsite Restic, then relink originals on
+  `tank`. Do not attempt to add the failed TN320 to another pool.
+- If `app-recovery` fails, replace/recreate it and seed it from live applications only
+  after verifying offsite recovery remains current.
+- After the future mirror exists, replace one failed Apps NVMe with an equal-or-larger
+  device and wait for resilver; never detach the healthy member first.
+
 ## Complete NAS loss
 
 1. Obtain replacement hardware and verify every component and drive identity.
 2. Install the supported TrueNAS maintenance release on a dedicated boot SSD.
 3. Restore the TrueNAS configuration only after reviewing network and device mappings.
-4. Import `tank` and `archive` independently. Confirm all four member serials for each
+4. Import `tank`, `archive`, and surviving `apps`/`app-recovery` pools independently.
+   Confirm all member serials for each
    pool and never add the archive vdev to `tank`. Recreate a missing pool only from its
    independent backup; do not format surviving or backup media.
 5. Unlock encrypted roots using verified offline keys.

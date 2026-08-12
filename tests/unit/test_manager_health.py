@@ -26,6 +26,22 @@ async def fake_call(method: str, params: list[Any] | None) -> Any:
                 "free": 400,
                 "scan": {"function": "SCRUB", "state": "FINISHED"},
             },
+            {
+                "name": "apps",
+                "status": "ONLINE",
+                "healthy": True,
+                "size": 1000,
+                "allocated": 200,
+                "free": 800,
+            },
+            {
+                "name": "app-recovery",
+                "status": "ONLINE",
+                "healthy": True,
+                "size": 512,
+                "allocated": 100,
+                "free": 412,
+            },
         ],
         "disk.query": [{"name": "sda", "smart_result": "PASSED"}],
         "app.query": [{"name": "immich", "state": "RUNNING"}],
@@ -44,7 +60,7 @@ def test_live_health_normalizes_read_only_api_data(tmp_path: Path) -> None:
     assert snapshot["mode"] == "live"
     assert snapshot["storage"]["pools"][0]["utilization_percent"] == 70.0
     assert snapshot["storage"]["all_pools_healthy"] is True
-    assert len(snapshot["storage"]["pools"]) == 2
+    assert len(snapshot["storage"]["pools"]) == 4
     assert snapshot["services"]["immich"] == "RUNNING"
     assert snapshot["services"]["tailscale"]["status"] == "online"
 
@@ -70,3 +86,5 @@ def test_live_health_marks_missing_required_pool_unhealthy() -> None:
     snapshot = LiveHealthProvider(one_pool_call).snapshot()
     assert snapshot["storage"]["all_pools_healthy"] is False
     assert "Expected pool archive is missing" in snapshot["warnings"]
+    assert "Expected pool apps is missing" in snapshot["warnings"]
+    assert "Expected pool app-recovery is missing" in snapshot["warnings"]

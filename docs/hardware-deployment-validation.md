@@ -7,6 +7,10 @@ only copy of family data, perform and record:
   burn-in for all eight disks;
 - real API method/schema probes against the installed TrueNAS version;
 - `tank` and `archive` creation as independent RAIDZ2 pools on explicitly confirmed serials;
+- `apps` creation from only the TN320 1 TB NVMe and independent `app-recovery` creation
+  from only the Inland 512 GB SATA SSD;
+- rehearsal of the future NVMe attach-as-mirror procedure, including rejection of a
+  proposed new striped vdev;
 - dataset key export, offline storage, lock/unlock, and reboot behavior;
 - snapshot single-file recovery and both database restores;
 - Restic selected-file and full-loss recovery exercises;

@@ -4,7 +4,8 @@
 
 The final platform is the i7-12700K, MSI PRO Z790-P WIFI DDR4, 48 GB DDR4-3200,
 optional RTX 2060, JONSBO N5, acquired ASRock SL-1000G, Samsung PM830 128 GB SATA
-boot SSD, and Inland TN320 NVMe application SSD. See the complete
+boot SSD, Inland TN320 1 TB NVMe application SSD, and Inland 512 GB SATA recovery SSD.
+See the complete
 [hardware BOM](hardware-bom.md) and [transplant guide](build-and-transplant-guide.md).
 
 ## Required
@@ -15,8 +16,9 @@ boot SSD, and Inland TN320 NVMe application SSD. See the complete
 - Genuine LSI SAS 9207-8i in P20 IT mode for the SAS disks; motherboard SATA for the
   Toshiba disks; no hardware RAID before ZFS.
 - Samsung PM830 128 GB dedicated TrueNAS boot SSD, accepted only after health testing.
-- Inland TN320 NVMe for Apps; verify its actual capacity and health before use and never
+- Inland TN320 1 TB NVMe for Apps; verify its health before use and never
   place Apps on the TrueNAS boot device.
+- Inland 512 GB SATA SSD as independent `app-recovery`; never add it to another pool.
 - Four WD Ultrastar DC HC550 18 TB 512e SAS drives for `tank`.
 - Four Toshiba DT01ACA300 3 TB 512e SATA drives for `archive`.
 - PSU sized for eight-drive startup current and USB-connected NUT-compatible UPS.
@@ -27,7 +29,7 @@ boot SSD, and Inland TN320 NVMe application SSD. See the complete
 
 ## Recommended
 
-- 32 GB RAM, 2.5 Gb Ethernet, mirrored application SSDs, Intel Quick Sync for
+- 32 GB RAM, 2.5 Gb Ethernet, a future second ≥1 TB Apps NVMe mirror member, Intel Quick Sync for
   Immich transcoding, ECC where supported, and drives from varied batches.
 - Cabling clear of airflow, a rapid replacement plan, and UPS capacity
   sized for the final eight-drive system.
@@ -37,10 +39,12 @@ boot SSD, and Inland TN320 NVMe application SSD. See the complete
 - 64 GB RAM for heavier workloads and a cold-spare data drive.
 - RTX 2060 for measured Immich CUDA workloads; prefer UHD 770/Quick Sync initially.
 
-## Application SSD contents
+## Solid-state contents
 
-PostgreSQL, Redis, container state, Immich thumbnails, encoded video, ML cache,
-logs, and temporary processing data. Original documents and media remain on RAIDZ2.
+`apps` holds PostgreSQL, Redis, container state, Immich thumbnails, encoded video, ML
+cache, logs, and temporary data. `app-recovery` holds current database dumps,
+configuration exports, Compose/hosting revisions, and selected recovery metadata—never
+the only copy. Original documents and media remain on RAIDZ2.
 
 ## Drive acceptance
 

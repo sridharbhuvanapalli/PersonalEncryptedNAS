@@ -53,6 +53,22 @@ class ArchivePoolConfig(StrictModel):
         return self
 
 
+class SolidStateStorageConfig(StrictModel):
+    boot_pool_name: Literal["boot-pool"] = "boot-pool"
+    boot_device_model: Literal["Samsung SSD PM830 128GB"] = "Samsung SSD PM830 128GB"
+    boot_capacity_gb: Literal[128] = 128
+    apps_pool_name: Literal["apps"] = "apps"
+    apps_primary_model: Literal["Inland TN320 1TB NVMe"] = "Inland TN320 1TB NVMe"
+    apps_primary_capacity_gb: Literal[1000] = 1000
+    apps_initial_layout: Literal["single"] = "single"
+    apps_target_layout: Literal["mirror"] = "mirror"
+    future_mirror_minimum_capacity_gb: Literal[1000] = 1000
+    recovery_pool_name: Literal["app-recovery"] = "app-recovery"
+    recovery_device_model: Literal["Inland 512GB SATA III SSD"] = "Inland 512GB SATA III SSD"
+    recovery_capacity_gb: Literal[512] = 512
+    recovery_layout: Literal["single"] = "single"
+
+
 class StorageConfig(StrictModel):
     chassis_bays: Literal[12] = 12
     deployment_phase: Literal[1, 2]
@@ -70,6 +86,7 @@ class StorageConfig(StrictModel):
     require_smart_extended_test: bool = True
     require_serial_confirmation: bool = True
     archive_pool: ArchivePoolConfig
+    solid_state: SolidStateStorageConfig
     application_device_serials: tuple[str, ...]
     boot_device_serials: tuple[str, ...]
 
@@ -84,6 +101,14 @@ class StorageConfig(StrictModel):
             raise ValueError(f"phase {self.deployment_phase} requires {expected} expected drives")
         if self.pool_name == self.archive_pool.pool_name:
             raise ValueError("main and archive pool names must be different")
+        pool_names = {
+            self.pool_name,
+            self.archive_pool.pool_name,
+            self.solid_state.apps_pool_name,
+            self.solid_state.recovery_pool_name,
+        }
+        if len(pool_names) != 4:
+            raise ValueError("data, archive, apps, and recovery pool names must be unique")
         return self
 
 

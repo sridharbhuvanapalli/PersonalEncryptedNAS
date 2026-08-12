@@ -5,17 +5,16 @@ it for TrueNAS. Pool creation remains a separate, serial-confirmed operation.
 
 ## 1. Protect the current system
 
-1. Copy every file that exists only on the Samsung PM830, Inland TN320, or any other
-   current-system disk to two independently readable destinations. Pool/boot preparation
-   can erase these devices.
+1. Copy every file that exists only on the Samsung PM830, Inland TN320, Inland 512 GB
+   SATA SSD, or any other current-system disk to two independently readable destinations.
+   Pool/boot preparation can erase these devices.
 2. Export browser, license, BitLocker recovery, application, and Windows activation
    information that might be needed later.
 3. Photograph the working motherboard, CPU-power, cooler, front-panel, GPU-power, fan,
    and storage connections.
 4. Record every installed component model and serial number.
-5. Capture Samsung PM830 SMART data and Inland TN320 NVMe SMART/health/error logs before
-   dismantling. Record label capacity and firmware for both; the TN320 capacity is not
-   assumed by this guide.
+5. Capture Samsung PM830 and Inland 512 GB SATA SMART data plus Inland TN320 NVMe
+   health/error logs before dismantling. Record model, serial, capacity, and firmware.
 6. Download the MSI motherboard manual, current stable BIOS, TrueNAS ISO and checksum,
    HBA P20 IT firmware evidence, and NIC firmware before taking the system offline.
 7. Shut Windows down normally, switch the old PSU off, unplug it, and press the power
@@ -64,9 +63,9 @@ Do not attach any future ZFS data disk during initial firmware or TrueNAS instal
 7. Use only the original cables supplied with this exact PSU. Connect every power input
    required by each N5 backplane according to its PCB markings/manual; never substitute
    modular cables from another PSU.
-8. Install the Samsung PM830 128 GB SATA SSD in a dedicated 2.5-inch position and the
-   Inland TN320 in an M.2 slot. Record their exact model, capacity, serial, firmware,
-   health percentage, error log, and power-on hours. Do not format either yet.
+8. Install the Samsung PM830 128 GB and Inland 512 GB SATA SSDs in separate labeled
+   2.5-inch positions and the TN320 1 TB in an M.2 slot. Record exact model, capacity,
+   serial, firmware, health percentage, error log, and power-on hours. Do not format them.
 9. For the preferred low-power build, leave the RTX 2060 out and install the HBA in the
    top CPU-connected x16 slot. Otherwise install the RTX there and the HBA in PCI_E3.
 10. Direct an intake or small fan across the HBA heatsink; server HBAs expect forced air.
@@ -92,7 +91,7 @@ breakout cables.
    - restore after AC loss set to the documented preference;
    - CPU and RAM overclocking/XMP disabled initially;
    - fan curves that keep HDD intake airflow continuous.
-4. Confirm 48 GB of memory, both SSDs, the HBA, Intel 2.5 GbE, temperatures, and fans.
+4. Confirm 48 GB of memory, all three SSDs, the HBA, Intel 2.5 GbE, temperatures, and fans.
 5. Update BIOS only through MSI's supported process and only while stable UPS power is
    available. Recheck every storage-related setting afterward.
 
@@ -117,10 +116,13 @@ breakout cables.
 4. Create a named administrator, enable MFA, and do not expose the UI on the WAN.
 5. Give TrueNAS a reserved management address, for example `192.168.1.10`.
 6. Reserve a separate service address, for example `192.168.1.20`, for Caddy and LAN DNS.
-7. Verify the Inland TN320's label capacity and health. Select it as the single NVMe Apps
-   pool only if it passes; otherwise replace it. A single Apps SSD has no device
-   redundancy, so database dumps and configuration backups are mandatory.
-8. Do not create `tank` yet.
+7. Verify the Inland TN320 reports 1 TB and passes health checks. Create `apps` from only
+   this NVMe as the initial single-device Apps pool. Do not combine it with the smaller
+   SATA SSD.
+8. Verify the Inland 512 GB SATA SSD and create the separate single-device
+   `app-recovery` pool. Configure nightly database dumps, configuration exports, and
+   selected recovery copies to it, plus encrypted offsite Restic copies.
+9. Do not create `tank` yet.
 
 ## 8. Install and accept disks
 
@@ -165,7 +167,34 @@ breakout cables.
 5. Configure encrypted Restic backup before importing the only copy of family data.
 6. Configure the UPS USB connection and perform a controlled shutdown test.
 
-## 10. Commission applications and remote access
+## 10. Add the future 1 TB NVMe Apps mirror
+
+This is a topology change, not an Apps migration. Perform it only from the TrueNAS UI or
+a separately reviewed plan matching the installed TrueNAS release.
+
+1. Acquire an NVMe whose reported usable capacity is at least that of the TN320; similar
+   endurance and performance are preferred. Record model, serial, firmware, health, and
+   error log, then run the supported extended/device self-test.
+2. Confirm `apps` is ONLINE, scrubbed, below 80% utilization, and has no active resilver.
+   Refresh database dumps on `app-recovery` and complete an encrypted offsite backup and
+   recent restore test.
+3. Stop Nextcloud, Immich, PostgreSQL, Redis/Valkey, proxy dependencies, and other
+   write-heavy consumers during the topology operation.
+4. In the `apps` VDEV/device screen, select the existing TN320 device and use the
+   installed release's **Attach** operation to add the new NVMe as its mirror member.
+   Confirm the preview changes the one-device data vdev into one two-device mirror.
+5. Cancel immediately if the UI proposes a new top-level data vdev, stripe, pool, cache,
+   SLOG, or special vdev. Do not choose Add VDEV merely because it is available.
+6. Allow resilver to reach 100% without rebooting, detaching either SSD, or performing
+   updates. Confirm `zpool status apps` reports one mirror containing exactly the TN320
+   and new NVMe, with zero read/write/checksum errors.
+7. Run an `apps` scrub, restart services in dependency order, and verify databases,
+   Nextcloud, Immich, Operations Manager, backups, and a selected restore.
+8. Update the bay/device map, recovery bundle, configuration export, monitoring baseline,
+   and audit log. Usable `apps` capacity remains about 1 TB; the added NVMe provides
+   redundancy, not capacity. `app-recovery` remains separate.
+
+## 11. Commission applications and remote access
 
 1. Create fixed Docker networks:
    `pnas_private` for applications and `pnas_management` with a documented small subnet

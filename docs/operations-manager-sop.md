@@ -74,9 +74,9 @@ Always start with the status line:
 Review panels in this order:
 
 1. Warnings and active TrueNAS alerts.
-2. `tank` and `archive` status, health boolean, active scrub/resilver, and utilization.
-   Both expected pools must be present and healthy; one green pool does not mask a
-   missing or degraded second pool.
+2. `tank`, `archive`, `apps`, and `app-recovery` status, health, active scrub/resilver,
+   and utilization. All expected pools must be present and healthy; one green pool does
+   not mask a missing or degraded pool.
 3. Disk count and disk warnings.
 4. Nextcloud, Immich, proxy, database, and cache application states.
 5. Backup and restore-test freshness.
@@ -92,7 +92,7 @@ action, and resolution time.
 ### Daily
 
 - Confirm live, non-stale collection.
-- Check both pools ONLINE/healthy and no active unexpected resilver.
+- Check all four pools ONLINE/healthy and no active unexpected resilver.
 - Review new critical alerts and service failures.
 - Confirm the latest encrypted backup completed.
 - Confirm each pool remains below its 70 percent warning and 80 percent ceiling.
@@ -109,6 +109,8 @@ action, and resolution time.
 
 - Review both scrub results and the staggered SMART long-test schedule. Never overlap
   all-disk long tests with either pool's scrub or resilver.
+- Confirm nightly database/configuration exports reached `app-recovery`, then verify the
+  same critical recovery set reached encrypted offsite storage.
 - Review Tailscale users, groups, approved devices, duplicates, and inactive machines.
 - Perform a selected-file Restic restore to a temporary location and verify its hash.
 - Review TrueNAS and application updates without installing them automatically.
@@ -142,6 +144,16 @@ four 3 TB Toshiba serials; cancel any plan that adds them to `tank`.
 Real destructive pool application remains blocked by this software until live inventory
 normalization and a hardware validation session are complete. Do not bypass that guard.
 
+### Future Apps mirror change
+
+The future second ≥1 TB NVMe is a reviewed storage maintenance action. Follow the
+[transplant guide procedure](build-and-transplant-guide.md#10-add-the-future-1-tb-nvme-apps-mirror).
+The accepted end state is one two-device mirror vdev in the existing `apps` pool. The
+pool name, datasets, paths, and application configuration stay unchanged. A new striped
+top-level vdev is a rejection condition. Record pre-change backups, exact SSD serials,
+resilver completion, scrub results, application checks, restore evidence, and final
+topology in the audit log.
+
 ## Incident procedures
 
 ### Manager shows degraded
@@ -155,7 +167,7 @@ normalization and a hardware validation session are complete. Do not bypass that
 ### Pool degraded or disk fault
 
 1. Stop large imports and nonessential write-heavy applications.
-2. Record whether `tank` or `archive` is affected, plus pool status, alerts, affected
+2. Record which pool is affected, plus pool status, alerts, affected
    GUID, stable ID, serial, bay, interface, and SMART result.
 3. Confirm the backup is current without running a competing full backup during a
    fragile resilver unless risk analysis requires it.

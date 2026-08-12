@@ -38,7 +38,21 @@ storage:
     vdev_width: 4
     maximum_utilization_percent: 80
     warning_utilization_percent: 70
-  application_device_serials: [APPSSD001]
+  solid_state:
+    boot_pool_name: boot-pool
+    boot_device_model: Samsung SSD PM830 128GB
+    boot_capacity_gb: 128
+    apps_pool_name: apps
+    apps_primary_model: Inland TN320 1TB NVMe
+    apps_primary_capacity_gb: 1000
+    apps_initial_layout: single
+    apps_target_layout: mirror
+    future_mirror_minimum_capacity_gb: 1000
+    recovery_pool_name: app-recovery
+    recovery_device_model: Inland 512GB SATA III SSD
+    recovery_capacity_gb: 512
+    recovery_layout: single
+  application_device_serials: [APPSSD001, APPRECOVERY001]
   boot_device_serials: [BOOTSSD001]
 
 applications:

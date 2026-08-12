@@ -15,6 +15,13 @@ Retention is 30 daily, 12 weekly, and 12 monthly. Run `restic check` regularly a
 selected-file restore at least quarterly. Credentials and the Restic password belong
 in separate mode-0600 files with least privilege.
 
+Write nightly validated database dumps, application/Compose configuration exports, and
+hosting revisions to the separate `app-recovery` pool on the Inland 512 GB SATA SSD,
+then include them in encrypted offsite Restic backup. This local pool is a recovery
+staging target only: it shares the NAS chassis, PSU, administrator, and physical risks.
+After `apps` becomes a two-NVMe mirror, keep both local and offsite recovery workflows;
+mirroring reduces downtime from one SSD failure but does not recover deletion or damage.
+
 For B2, use a bucket-specific application key that can read/write only the backup
 bucket. Object Lock improves resistance to deletion but prevents pruning locked
 objects until provider retention expires. Ensure the provider policy is compatible
@@ -23,4 +30,3 @@ with Restic retention before enabling it.
 Sources: [Restic documentation](https://restic.readthedocs.io/en/stable/),
 [Restic B2 backend](https://restic.readthedocs.io/en/stable/030_preparing_a_new_repo.html#backblaze-b2),
 and [Backblaze Object Lock](https://www.backblaze.com/docs/cloud-storage-object-lock).
-

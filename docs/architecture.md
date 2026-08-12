@@ -35,9 +35,16 @@ The automation models both pool plans but leaves real destructive mutation disab
 until live inventory normalization and hardware validation are complete.
 
 The platform uses the JONSBO N5's 12 hot-swap HDD bays with eight initially populated.
-TrueNAS boots from the acquired Samsung PM830 128 GB SATA SSD. The Inland TN320 NVMe
-holds the initial single-device `apps` pool after health and capacity verification;
-database dumps and app configuration are backed up because this device is not mirrored.
+TrueNAS boots from the Samsung PM830 128 GB SATA SSD. The Inland TN320 1 TB NVMe holds
+the initial single-device `apps` pool. The Inland 512 GB SATA SSD forms a separate
+single-device `app-recovery` pool for local database/configuration recovery copies.
+Neither single-device pool is redundant, and `app-recovery` is not an offsite backup.
+
+A future NVMe with at least 1 TB usable capacity is attached to the TN320's existing
+data vdev to convert `apps` from a one-device stripe into a two-device mirror. This does
+not change the pool name, datasets, host paths, application configuration, or usable
+capacity. Adding the future NVMe as a new top-level striped vdev is prohibited because
+either SSD failure would then destroy the pool.
 
 ## ADR-002: Tailnet-only remote access
 

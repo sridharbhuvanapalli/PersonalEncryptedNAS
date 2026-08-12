@@ -11,7 +11,8 @@
 | Chassis | JONSBO N5 NAS PC Case | Use; 12 hot-swap 3.5-inch bays and 2–4 dedicated 2.5-inch positions |
 | PSU | ASRock Steel Legend SL-1000G | Acquired; retain all original modular cables |
 | TrueNAS boot SSD | Samsung SSD PM830 128 GB SATA | Acquired; reuse only after SMART/health validation |
-| Application SSD | Inland TN320 NVMe | Acquired; verify label capacity, SMART/NVMe health, endurance, and firmware |
+| Application SSD | Inland TN320 1 TB NVMe | Acquired; initial single-device `apps`, future mirror member 1 |
+| Recovery SSD | Inland 512 GB 2.5-inch SATA III 6 Gb/s | Acquired; separate single-device `app-recovery` pool |
 | Main disks | 4 × WD Ultrastar DC HC550 18 TB, SAS 12 Gb/s, 512e | `tank`: one four-wide RAIDZ2 vdev |
 | Archive disks | 4 × Toshiba DT01ACA300 3 TB, SATA 6 Gb/s, 512e | `archive`: one four-wide RAIDZ2 vdev |
 
@@ -34,7 +35,7 @@ counterfeit listings avoided.
 | 1 | HBA-to-backplane cable | Forward SFF-8087 host to 4 × 7-pin SATA-style backplane ports, 60–90 cm | $20–40 |
 | 4 | SATA data cables | Latching, 60–90 cm, motherboard to archive backplane ports | $20–40 total |
 | 1 | UPS | CyberPower CP1500PFCLCD 1500 VA / 1000 W pure sine | $220–275 |
-| 0–1 | Second application NVMe | Match capacity/endurance to the TN320 if an Apps mirror is chosen | $40–100 |
+| 0–1 future | Second application NVMe | At least 1 TB usable capacity; matched endurance preferred; attach as a TN320 mirror member | $50–100 |
 | 2–5 | Fans | Quality PWM intake/replacement fans for HDDs and HBA, subject to measured thermals | $25–75 |
 | 1 lot | Service parts | Thermal paste, labels, cable ties, spare SATA cable | $15–30 |
 
@@ -46,6 +47,19 @@ splitters. An SFF-8643 cable does not fit the 9207-8i. The N5 backplane requires
 SFF-8087 cable to terminate in four 7-pin data connectors rather than SFF-8482 drive
 plugs. SAS support through this pass-through backplane must be proven with all four
 HC550s before creating `tank`.
+
+## Solid-state pool layout
+
+| Pool | Initial device/layout | Purpose | Future state |
+|---|---|---|---|
+| `boot-pool` | Samsung PM830 128 GB SATA, single | TrueNAS OS and boot environments only | Replace if health degrades; retain config exports |
+| `apps` | Inland TN320 1 TB NVMe, single | Databases, containers, thumbnails, generated media, logs | Attach a second ≥1 TB NVMe to the existing vdev as a mirror member |
+| `app-recovery` | Inland 512 GB SATA, single | Nightly DB/config exports and selected app recovery material | Remains separate; never add to `apps`, `tank`, or `archive` |
+
+The 512 GB SATA SSD does not mirror the 1 TB TN320: that would limit `apps` to the
+smaller device and SATA write speed. `app-recovery` is a convenient local recovery copy,
+not protection from theft, fire, PSU/backplane failure, or destructive administration;
+the same critical recovery set must also reach encrypted offsite Restic storage.
 
 ## Controller and slot placement
 

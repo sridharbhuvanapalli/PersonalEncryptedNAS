@@ -11,6 +11,10 @@ def test_example_configuration_is_valid() -> None:
     assert config.storage.drive_capacity_tb == 18
     assert config.storage.required_transport == "sas"
     assert config.storage.chassis_bays == 12
+    assert config.storage.solid_state.apps_primary_capacity_gb == 1000
+    assert config.storage.solid_state.apps_target_layout == "mirror"
+    assert config.storage.solid_state.recovery_capacity_gb == 512
+    assert "APPRECOVERY001" in config.storage.application_device_serials
     assert config.storage.archive_pool.drive_capacity_tb == 3
     assert config.storage.archive_pool.required_transport == "sata"
     assert config.truenas.adapter == "mock"

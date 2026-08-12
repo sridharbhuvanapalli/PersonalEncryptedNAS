@@ -83,10 +83,15 @@ tank                         four 18 TB HC550 SAS 512e disks, RAIDZ2
 
 archive                      four 3 TB DT01ACA300 SATA 512e disks, RAIDZ2
 
-apps                         Inland TN320 NVMe, single-device initially
+apps                         Inland TN320 1 TB NVMe, single-device initially
 ├── app-config
 ├── databases
 └── immich-generated
+
+app-recovery                 Inland 512 GB SATA SSD, separate single-device pool
+├── database-dumps
+├── app-config-exports
+└── hosting-revisions
 ```
 
 Both pools use independently reviewed four-wide RAIDZ2 plans. The archive plan creates
@@ -96,9 +101,15 @@ the reviewed initial deployment while preserving the serial-verification checkli
 
 The JONSBO N5 provides 12 hot-swap 3.5-inch bays; eight are initially populated and
 four remain empty. The Samsung PM830 128 GB SATA SSD is dedicated to TrueNAS boot. The
-Inland TN320 NVMe is the initial Apps device after its exact label capacity and health
-are verified. Because it is not mirrored, application configuration and database dumps
-must be recoverable independently of that SSD.
+Inland TN320 1 TB NVMe is the initial Apps device. The Inland 512 GB SATA SSD is a
+separate `app-recovery` pool; it is not paired with the TN320 or added to a data pool.
+Because both start as single-device pools, critical recovery content also goes to
+encrypted offsite Restic storage.
+
+When a second ≥1 TB NVMe is purchased, attach it to the existing TN320 vdev as a mirror
+member. The `apps` pool/dataset names remain unchanged, so application, Caddy, Tailscale,
+DNS, and Compose paths do not migrate. The change is complete only after resilver,
+scrub, application checks, and a restore test pass.
 
 Physical connections are deliberately asymmetric: one 9207-8i SFF-8087 port fans out
 to four individual N5 backplane data ports for the HC550s, while four motherboard SATA

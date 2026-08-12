@@ -23,12 +23,24 @@ def _base_drives() -> list[Drive]:
             role=DeviceRole.BOOT,
         ),
         Drive(
-            model="Inland TN320 NVMe (capacity verify)",
+            model="Inland TN320 1TB NVMe",
             serial="APPSSD001",
             stable_id="/dev/disk/by-id/nvme-APPSSD001",
             capacity_bytes=1_000_000_000_000,
             rotational=False,
             transport="nvme",
+            cmr=None,
+            smart=SmartState.PASSED,
+            smart_extended_passed=True,
+            role=DeviceRole.APPLICATION,
+        ),
+        Drive(
+            model="Inland 512GB SATA III SSD",
+            serial="APPRECOVERY001",
+            stable_id="/dev/disk/by-id/ata-APPRECOVERY001",
+            capacity_bytes=512_000_000_000,
+            rotational=False,
+            transport="sata",
             cmr=None,
             smart=SmartState.PASSED,
             smart_extended_passed=True,
@@ -83,7 +95,7 @@ def build_inventory_profile(
                 role=DeviceRole.DATA if index <= assigned else DeviceRole.UNASSIGNED,
             )
         )
-    data_serials = tuple(drive.serial for drive in drives[2:] if drive.serial)
+    data_serials = tuple(drive.serial for drive in drives[3:] if drive.serial)
     return HardwareInventory(
         inventory_id=f"profile-{name}",
         captured_at=datetime.now(UTC),

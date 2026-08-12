@@ -76,7 +76,8 @@ async def test_main_plan_rejects_a_sata_variant() -> None:
         Path("tests/fixtures/inventory-four-hc550-18tb.json")
     ).inventory()
     drives = list(inventory.drives)
-    drives[2] = drives[2].model_copy(update={"transport": "sata"})
+    main_index = next(index for index, drive in enumerate(drives) if drive.role == "data")
+    drives[main_index] = drives[main_index].model_copy(update={"transport": "sata"})
     inventory = inventory.model_copy(update={"drives": tuple(drives)})
     config = load_config(Path("config/pnas.example.yaml"))
     with pytest.raises(ValueError, match="requires SAS"):

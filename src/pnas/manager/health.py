@@ -27,7 +27,7 @@ class LiveHealthProvider:
         *,
         tailscale_status_file: Path | None = None,
         timeout_seconds: float = 10,
-        required_pool_names: tuple[str, ...] = ("tank", "archive"),
+        required_pool_names: tuple[str, ...] = ("tank", "archive", "apps", "app-recovery"),
     ):
         self.call = call
         self.tailscale_status_file = tailscale_status_file
@@ -191,6 +191,24 @@ def mock_health_snapshot() -> dict[str, Any]:
                     "utilization_percent": None,
                     "latest_scrub": "fixture-success",
                 },
+                {
+                    "pool_name": "apps",
+                    "pool_health": "MOCK_HEALTHY",
+                    "pool_healthy": True,
+                    "vdev_topology": ["1 x Inland TN320 1 TB NVMe; future mirror"],
+                    "raw_tb": 1.0,
+                    "utilization_percent": None,
+                    "latest_scrub": "fixture-success",
+                },
+                {
+                    "pool_name": "app-recovery",
+                    "pool_health": "MOCK_HEALTHY",
+                    "pool_healthy": True,
+                    "vdev_topology": ["1 x Inland 512 GB SATA SSD"],
+                    "raw_tb": 0.512,
+                    "utilization_percent": None,
+                    "latest_scrub": "fixture-success",
+                },
             ],
             "dataset_encryption": "mock-unlocked",
             "actual_free_tib": None,
@@ -199,7 +217,7 @@ def mock_health_snapshot() -> dict[str, Any]:
             "forecast_70_percent": None,
             "forecast_80_percent": None,
         },
-        "disks": {"assigned": 8, "empty_bays": 0, "unassigned": 0, "warnings": []},
+        "disks": {"assigned": 11, "empty_hdd_bays": 4, "unassigned": 0, "warnings": []},
         "protection": {
             "latest_snapshot": None,
             "latest_backup": None,

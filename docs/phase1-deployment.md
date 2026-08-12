@@ -3,7 +3,9 @@
 Physical execution is intentionally unavailable until this entire checklist is
 completed on the real machine and the real inventory adapter is enabled.
 
-1. Install TrueNAS and application SSD storage using the installation runbook.
+1. Install TrueNAS on the PM830; create single-device `apps` on the TN320 1 TB NVMe and
+   separate single-device `app-recovery` on the Inland 512 GB SATA SSD using the
+   installation runbook.
 2. Record all eight bays and map the four HC550 SAS disks by serial and stable ID.
 3. Run long SMART tests and destructive burn-in on all four HC550 disks.
 4. Run `pnas-install preflight`, `inventory`, and `capacity-plan`.

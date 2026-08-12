@@ -15,7 +15,7 @@ from pnas.planning.capacity import calculate_raidz2_capacity
 )
 def test_capacity_profiles_build(profile: str, count: int, capacity: int) -> None:
     inventory = build_inventory_profile(profile)
-    drives = inventory.drives[2:]
+    drives = [drive for drive in inventory.drives if drive.role in {"data", "unassigned"}]
     assert len(drives) == count
     plan = calculate_raidz2_capacity(drive_count=count, drive_capacity_bytes=capacity)
     assert plan.drive_capacity_decimal_tb in (4.0, 8.0)
@@ -29,7 +29,8 @@ def test_fault_profiles_build() -> None:
         len(
             set(
                 drive.capacity_bytes
-                for drive in build_inventory_profile("mixed-capacities").drives[2:]
+                for drive in build_inventory_profile("mixed-capacities").drives
+                if drive.role in {"data", "unassigned"}
             )
         )
         == 2
