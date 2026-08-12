@@ -34,6 +34,11 @@ desktop Toshiba drives require full burn-in, closer monitoring, and independent 
 The automation models both pool plans but leaves real destructive mutation disabled
 until live inventory normalization and hardware validation are complete.
 
+The platform uses the JONSBO N5's 12 hot-swap HDD bays with eight initially populated.
+TrueNAS boots from the acquired Samsung PM830 128 GB SATA SSD. The Inland TN320 NVMe
+holds the initial single-device `apps` pool after health and capacity verification;
+database dumps and app configuration are backed up because this device is not mirrored.
+
 ## ADR-002: Tailnet-only remote access
 
 **Status:** Accepted, 2026-08-11.

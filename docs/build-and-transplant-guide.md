@@ -1,20 +1,24 @@
 # NAS build and component-transplant guide
 
-This procedure moves the i7-12700K platform into the Phanteks Enthoo Pro and prepares
+This procedure moves the i7-12700K platform into the JONSBO N5 and prepares
 it for TrueNAS. Pool creation remains a separate, serial-confirmed operation.
 
 ## 1. Protect the current system
 
-1. Copy every file that exists only on the current 256 GB SSD or 1 TB disk to two
-   independently readable destinations.
+1. Copy every file that exists only on the Samsung PM830, Inland TN320, or any other
+   current-system disk to two independently readable destinations. Pool/boot preparation
+   can erase these devices.
 2. Export browser, license, BitLocker recovery, application, and Windows activation
    information that might be needed later.
 3. Photograph the working motherboard, CPU-power, cooler, front-panel, GPU-power, fan,
    and storage connections.
 4. Record every installed component model and serial number.
-5. Download the MSI motherboard manual, current stable BIOS, TrueNAS ISO and checksum,
+5. Capture Samsung PM830 SMART data and Inland TN320 NVMe SMART/health/error logs before
+   dismantling. Record label capacity and firmware for both; the TN320 capacity is not
+   assumed by this guide.
+6. Download the MSI motherboard manual, current stable BIOS, TrueNAS ISO and checksum,
    HBA P20 IT firmware evidence, and NIC firmware before taking the system offline.
-6. Shut Windows down normally, switch the old PSU off, unplug it, and press the power
+7. Shut Windows down normally, switch the old PSU off, unplug it, and press the power
    button for ten seconds.
 
 Do not attach any future ZFS data disk during initial firmware or TrueNAS installation.
@@ -23,14 +27,17 @@ Do not attach any future ZFS data disk during initial firmware or TrueNAS instal
 
 1. Work on a large non-carpeted surface with good lighting.
 2. Use an ESD wrist strap connected to the bare chassis or touch grounded metal often.
-3. Remove both Enthoo Pro side panels, the front panel, both native HDD cages, and the
-   required 5.25-inch bay covers.
+3. Remove the N5 panels and removable HDD sections in the order shown by the Jonsbo
+   installation manual. Photograph both backplane PCBs, their data-port numbering, and
+   every SATA/peripheral power input before covering them.
 4. Vacuum or blow dust outside; do not spin fans at extreme speed with compressed air.
 5. Verify that ATX standoffs correspond exactly to the MSI board holes. Remove every
    unused standoff beneath the board.
-6. Install the extra 3.5-inch cage and its dedicated intake fan before the motherboard
-   obstructs access.
-7. Plan two cable paths: data cables on one side and power/fan cables on the other.
+6. Confirm the 150 mm-long SL-1000G fits within the N5's 170–240 mm PSU allowance and
+   that the existing CPU cooler is no taller than the N5's 160 mm limit.
+7. Route and label the eight backplane data cables and all required backplane power
+   harnesses before installing the PSU; access becomes restricted after assembly.
+8. Plan separate cable paths for data, backplane power, fans, and front-panel wiring.
 
 ## 3. Remove the reusable components
 
@@ -52,19 +59,24 @@ Do not attach any future ZFS data disk during initial firmware or TrueNAS instal
 3. Tighten screws in a loose cross pattern, then make them snug—not over-tight.
 4. Apply cooler-manufacturer-specified thermal paste and reinstall the LGA1700 cooler.
 5. Connect the 24-pin ATX and both CPU EPS connectors required by the board/cooler load.
-6. Install the ASRock PSU with its intake facing the ventilated bottom filter.
-7. Use only cables supplied or explicitly approved for this exact PSU model.
-8. Install the boot SATA SSD and application NVMe SSD. If using mirrored app SSDs,
-   install and label both now.
+6. Install the acquired ASRock SL-1000G using the N5 PSU bracket and chassis-specified
+   airflow orientation.
+7. Use only the original cables supplied with this exact PSU. Connect every power input
+   required by each N5 backplane according to its PCB markings/manual; never substitute
+   modular cables from another PSU.
+8. Install the Samsung PM830 128 GB SATA SSD in a dedicated 2.5-inch position and the
+   Inland TN320 in an M.2 slot. Record their exact model, capacity, serial, firmware,
+   health percentage, error log, and power-on hours. Do not format either yet.
 9. For the preferred low-power build, leave the RTX 2060 out and install the HBA in the
    top CPU-connected x16 slot. Otherwise install the RTX there and the HBA in PCI_E3.
 10. Direct an intake or small fan across the HBA heatsink; server HBAs expect forced air.
 11. Connect front-panel buttons/LEDs, front USB, chassis intrusion if desired, and fans.
 
-Before installing disk cabling, confirm the HBA has two internal SFF-8087 ports. Obtain
-one forward SFF-8087-to-4×SFF-8482 SAS harness with appropriate power inputs. Do not buy
-SFF-8643 or SFF-8087-to-SATA-only breakout cables for the four HC550 SAS drives. Also
-obtain four latching SATA data cables long enough to reach bays 5–8 without tension.
+Before installing disk cabling, confirm the HBA has two internal SFF-8087 ports. For the
+N5, obtain one forward SFF-8087-to-4×7-pin breakout long enough to reach the selected
+backplane ports; the cable terminates at the backplane, not at the drives. Also obtain
+four 60–90 cm latching SATA cables for the archive ports. Do not buy SFF-8643 or reverse
+breakout cables.
 
 ## 5. First boot without data disks
 
@@ -99,25 +111,31 @@ obtain four latching SATA data cables long enough to reach bays 5–8 without te
 
 1. Verify the downloaded TrueNAS ISO SHA-256 checksum against the official publication.
 2. Boot the installer in UEFI mode.
-3. Select only the dedicated 128–256 GB boot SSD. Confirm its model and serial twice.
+3. Select only the Samsung PM830 128 GB boot SSD. Confirm its model, capacity, and serial
+   twice. Because it is an older reused device, replace it if SMART/health data,
+   self-tests, error logs, or secure erase behavior are questionable.
 4. Create a named administrator, enable MFA, and do not expose the UI on the WAN.
 5. Give TrueNAS a reserved management address, for example `192.168.1.10`.
 6. Reserve a separate service address, for example `192.168.1.20`, for Caddy and LAN DNS.
-7. Select the NVMe application SSD or mirror for the Apps pool after TrueNAS installation.
+7. Verify the Inland TN320's label capacity and health. Select it as the single NVMe Apps
+   pool only if it passes; otherwise replace it. A single Apps SSD has no device
+   redundancy, so database dumps and configuration backups are mandatory.
 8. Do not create `tank` yet.
 
 ## 8. Install and accept disks
 
 1. Power the system off and disconnect AC before attaching disks.
-2. Place the four WD Ultrastar DC HC550 18 TB SAS 512e disks in bays 1–4.
-3. Place the four Toshiba DT01ACA300 3 TB SATA 512e disks in bays 5–8. The Enthoo Pro
-   has six native 3.5-inch locations, so the ventilated 5.25-inch cage must provide at
-   least the other two locations.
-4. Connect the four HC550s to one HBA SFF-8087 port with the forward four-lane SFF-8482
-   SAS harness. Connect the Toshiba disks to four motherboard SATA ports.
-5. Before final cable management, verify all eight disks spin and enumerate. If an
-   HC550 does not spin, stop and resolve SAS Power Disable compatibility using a proper
-   harness or backplane; do not tape drive pins or use improvised adapters.
+2. Assign four adjacent N5 hot-swap bays to the HC550 group and four adjacent bays to
+   the Toshiba group. Record the visible chassis bay number and matching backplane port;
+   leave four bays empty.
+3. Insert the four HC550 18 TB SAS 512e disks into the main-pool bays and the four
+   DT01ACA300 3 TB SATA 512e disks into the archive bays.
+4. Connect the four HC550 backplane ports to one HBA SFF-8087 port with the forward
+   four-lane breakout. Connect the four Toshiba backplane ports to motherboard SATA.
+5. Before final cable management, verify all eight disks spin and enumerate. Jonsbo's
+   page describes hot-swap HDD support but does not explicitly guarantee SAS. Treat
+   simultaneous enumeration of all four HC550s, SAS identity, WWNs, SMART access, and
+   error-free I/O as a mandatory acceptance gate.
 6. Spread disk power across the PSU's approved harnesses. Avoid sharp cable bends and
    any connector that feels loose or hot.
 7. Boot and map physical bay, HBA port, stable `/dev/disk/by-id` name, model, serial,
@@ -131,6 +149,8 @@ obtain four latching SATA data cables long enough to reach bays 5–8 without te
     long tests during normal operation rather than starting all eight simultaneously.
 11. Reject disks with reallocated/pending sectors, interface errors that follow the disk,
     unexplained temperature excursions, capacity mismatch, or failed SMART tests.
+12. Reboot and cold-boot twice, then repeat the eight-drive bay/serial map. Any HC550
+    intermittently absent through the N5 backplane is a stop condition.
 
 ## 9. Create storage and protection
 

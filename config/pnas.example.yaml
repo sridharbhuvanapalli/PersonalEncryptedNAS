@@ -12,7 +12,7 @@ truenas:
   adapter: mock
 
 storage:
-  chassis_bays: 8
+  chassis_bays: 12
   deployment_phase: 1
   expected_drive_count: 4
   drive_capacity_tb: 18

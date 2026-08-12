@@ -54,7 +54,7 @@ class ArchivePoolConfig(StrictModel):
 
 
 class StorageConfig(StrictModel):
-    chassis_bays: int = Field(ge=8)
+    chassis_bays: Literal[12] = 12
     deployment_phase: Literal[1, 2]
     expected_drive_count: int = Field(ge=4, le=8)
     drive_capacity_tb: float = Field(default=18.0, gt=0)

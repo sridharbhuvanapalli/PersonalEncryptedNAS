@@ -83,7 +83,7 @@ tank                         four 18 TB HC550 SAS 512e disks, RAIDZ2
 
 archive                      four 3 TB DT01ACA300 SATA 512e disks, RAIDZ2
 
-apps                         NVMe application pool, mirror preferred
+apps                         Inland TN320 NVMe, single-device initially
 ├── app-config
 ├── databases
 └── immich-generated
@@ -94,10 +94,16 @@ a new pool and never extends `tank`. Real pool mutation remains disabled until l
 inventory normalization and hardware validation are completed. Use the TrueNAS UI for
 the reviewed initial deployment while preserving the serial-verification checklist.
 
+The JONSBO N5 provides 12 hot-swap 3.5-inch bays; eight are initially populated and
+four remain empty. The Samsung PM830 128 GB SATA SSD is dedicated to TrueNAS boot. The
+Inland TN320 NVMe is the initial Apps device after its exact label capacity and health
+are verified. Because it is not mirrored, application configuration and database dumps
+must be recoverable independently of that SSD.
+
 Physical connections are deliberately asymmetric: one 9207-8i SFF-8087 port fans out
-to four SFF-8482 SAS connectors for the HC550s, while four motherboard SATA ports serve
-the Toshiba archive disks. An SFF-8643 cable does not fit this HBA and a SATA-only
-breakout cannot operate SAS drives.
+to four individual N5 backplane data ports for the HC550s, while four motherboard SATA
+ports serve four archive backplane ports. An SFF-8643 cable does not fit this HBA. The
+N5 backplane path must prove SAS enumeration and stable I/O before `tank` is created.
 
 ## Configuration and deployment
 

@@ -12,10 +12,10 @@ from pnas.models import DeviceRole, Drive, HardwareInventory, SmartState
 def _base_drives() -> list[Drive]:
     return [
         Drive(
-            model="Boot SSD",
+            model="Samsung SSD PM830 128GB",
             serial="BOOTSSD001",
             stable_id="/dev/disk/by-id/ata-BOOTSSD001",
-            capacity_bytes=256_000_000_000,
+            capacity_bytes=128_000_000_000,
             rotational=False,
             cmr=None,
             smart=SmartState.PASSED,
@@ -23,7 +23,7 @@ def _base_drives() -> list[Drive]:
             role=DeviceRole.BOOT,
         ),
         Drive(
-            model="Application SSD",
+            model="Inland TN320 NVMe (capacity verify)",
             serial="APPSSD001",
             stable_id="/dev/disk/by-id/nvme-APPSSD001",
             capacity_bytes=1_000_000_000_000,
