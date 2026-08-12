@@ -8,7 +8,7 @@
 | Motherboard | MSI PRO Z790-P WIFI DDR4 | Keep; disable motherboard RAID/RST/VMD |
 | Memory | 48 GB DDR4-3200 | Keep only after extended memory validation |
 | GPU | NVIDIA RTX 2060 | Optional; remove initially to reduce idle power |
-| Chassis | JONSBO N5 NAS PC Case | Use; 12 hot-swap 3.5-inch bays and 2–4 dedicated 2.5-inch positions |
+| Chassis | JONSBO N5 NAS PC Case | Use; 12 hot-swap 3.5-inch bays, 2–4 dedicated 2.5-inch positions, and three included rear 120 mm fans |
 | PSU | ASRock Steel Legend SL-1000G | Acquired; retain all original modular cables |
 | TrueNAS boot SSD | Samsung SSD PM830 128 GB SATA | Acquired; reuse only after SMART/health validation |
 | Application SSD | Inland TN320 1 TB NVMe | Acquired; initial single-device `apps`, future mirror member 1 |
@@ -32,23 +32,30 @@ counterfeit listings avoided.
 | Qty | Component | Recommended specification | Planning range |
 |---:|---|---|---:|
 | 1 | HBA | Genuine LSI SAS 9300-8i (SAS3008), P16 IT/HBA-mode firmware; two internal SFF-8643 ports and full-height bracket | $45–100 |
-| 1 | HBA-to-backplane cable | Forward SFF-8643 host to 4 × 7-pin SATA-style backplane ports, 60–90 cm | $20–40 |
-| 1 future | Second HBA-to-backplane cable | Same forward SFF-8643-to-4 × 7-pin cable, reserved for a separately approved four-disk `tank` expansion | $20–40 |
+| 1 | HBA-to-backplane cable | Forward SFF-8643 host to 4 × 7-pin SATA-style backplane ports; 75 cm preferred, 60–100 cm acceptable | $9–25 |
+| 1 future | Second HBA-to-backplane cable | Same forward SFF-8643-to-4 × 7-pin cable, reserved for a separately approved four-disk `tank` expansion | $9–25 |
 | 6 | SATA data cables | Latching cables: four for archive backplane ports and two for the SATA SSDs | $25–55 total |
 | 1 | UPS | CyberPower CP1500PFCLCD 1500 VA / 1000 W pure sine | $220–275 |
 | 0–1 future | Second application NVMe | At least 1 TB usable capacity; matched endurance preferred; attach as a TN320 mirror member | $50–100 |
-| 2–5 | Fans | Quality PWM intake/replacement fans for HDDs and HBA, subject to measured thermals | $25–75 |
+| 1–3 | Additional fans | At minimum, directed HBA airflow; add quality PWM HDD intake fans only when measured thermals require them | $10–60 |
 | 1 lot | Service parts | Thermal paste, labels, cable ties, spare SATA cable | $15–30 |
 
 Expected initial incremental total excluding data disks and the already acquired case,
-PSU, and SSDs is approximately **$350–575**. The future cable and second NVMe add about
-**$70–140** when approved. Deduct the UPS, HBA, cables, or fans if already owned. Do not
+PSU, and SSDs is approximately **$340–545**. The future cable and second NVMe add about
+**$60–125** when approved. Deduct the UPS, HBA, cables, or fans if already owned. Do not
 reduce cost by using a hardware RAID card, counterfeit HBA, USB boot flash drive,
 unverified SMR disks, or molded SATA power splitters. The 9300-8i requires a **forward**
 SFF-8643-to-4 × 7-pin breakout; SFF-8087,
 reverse-breakout, and SFF-8482 drive-end cables are not substitutes for this N5
 backplane path. SAS support through the pass-through backplane must be proven with all
 four HC550s before creating `tank`.
+
+The N5 includes three rear 120 mm fans. Do not count those as proof of adequate HBA or
+drive cooling: retain them initially, add a small directed fan or duct over the 9300-8i
+heatsink, and add intake fans only after inspecting clearances and measuring the full
+eight-drive burn-in. A 75 cm breakout is the preferred routing length; a 1 m forward
+breakout is electrically suitable when its excess is secured in a broad loop outside
+fan blades and without tight bends.
 
 ## Solid-state pool layout
 

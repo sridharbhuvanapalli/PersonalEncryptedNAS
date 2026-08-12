@@ -30,14 +30,17 @@ Do not attach any future ZFS data disk during initial firmware or TrueNAS instal
 3. Remove the N5 panels and removable HDD sections in the order shown by the Jonsbo
    installation manual. Photograph both backplane PCBs, their data-port numbering, and
    every SATA/peripheral power input before covering them.
-4. Vacuum or blow dust outside; do not spin fans at extreme speed with compressed air.
-5. Verify that ATX standoffs correspond exactly to the MSI board holes. Remove every
+4. Confirm the three included rear 120 mm fans are present, undamaged, and connected.
+   Record their headers and airflow direction; additional fan positions are not populated
+   merely because the chassis supports them.
+5. Vacuum or blow dust outside; do not spin fans at extreme speed with compressed air.
+6. Verify that ATX standoffs correspond exactly to the MSI board holes. Remove every
    unused standoff beneath the board.
-6. Confirm the 150 mm-long SL-1000G fits within the N5's 170–240 mm PSU allowance and
+7. Confirm the 150 mm-long SL-1000G fits within the N5's 170–240 mm PSU allowance and
    that the existing CPU cooler is no taller than the N5's 160 mm limit.
-7. Route and label the eight backplane data cables and all required backplane power
+8. Route and label the eight backplane data cables and all required backplane power
    harnesses before installing the PSU; access becomes restricted after assembly.
-8. Plan separate cable paths for data, backplane power, fans, and front-panel wiring.
+9. Plan separate cable paths for data, backplane power, fans, and front-panel wiring.
 
 ## 3. Remove the reusable components
 
@@ -74,8 +77,9 @@ Do not attach any future ZFS data disk during initial firmware or TrueNAS instal
 
 Before installing disk cabling, confirm the card is a genuine **LSI SAS 9300-8i**, not a
 9300-8e or RAID-only substitute, and has two internal SFF-8643 ports. For the N5, obtain
-one forward SFF-8643-to-4×7-pin breakout long enough to reach the selected backplane
-ports; the cable terminates at the backplane, not at the drives. Also provide four
+one forward SFF-8643-to-4×7-pin breakout; 75 cm is preferred and 60–100 cm is acceptable.
+The cable terminates at the backplane, not at the drives. Secure any excess from a 1 m
+cable in a broad loop outside the fan path. Also provide four
 latching SATA cables for the archive ports and two for the SATA SSDs. Do not buy an
 SFF-8087, reverse-breakout, or SFF-8482 drive-end cable for this connection.
 
@@ -157,6 +161,8 @@ SFF-8087, reverse-breakout, or SFF-8482 drive-end cable for this connection.
 9. Run SMART short and long tests, then a destructive burn-in before storing data.
 10. Run the full burn-in with direct airflow over all drives and the HBA. Stagger SMART
     long tests during normal operation rather than starting all eight simultaneously.
+    Verify the three included rear fans and the dedicated HBA airflow remain operational;
+    add HDD intake fans if measured temperatures or temperature spread are unacceptable.
 11. Reject disks with reallocated/pending sectors, interface errors that follow the disk,
     unexplained temperature excursions, capacity mismatch, or failed SMART tests.
 12. Reboot and cold-boot twice, then repeat the eight-drive bay/serial map. Any HC550
@@ -215,6 +221,12 @@ a separately reviewed plan matching the installed TrueNAS release.
    certificates.
 6. Validate LAN access, external direct Tailscale access, ISP-outage behavior, backup
    restoration, disk replacement, and UPS shutdown using the commissioning checklist.
+7. Keep the existing UniFi Network control plane on its current laptop during initial
+   storage commissioning. After NAS burn-in, backups, and recovery tests pass, it may be
+   migrated as a separately reviewed TrueNAS App/custom container. Back up the UniFi
+   configuration first, pin the application revision, publish no WAN port, and allow
+   management only from the trusted LAN/admin tailnet policy. It remains an optional
+   workload and is not deployed by this repository.
 
 The NAS is not production-ready merely because it boots or a pool reports ONLINE.
 Production begins only after the recovery and failure exercises succeed.

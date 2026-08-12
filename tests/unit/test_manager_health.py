@@ -6,7 +6,7 @@ from pnas.manager.health import LiveHealthProvider, safe_snapshot
 
 async def fake_call(method: str, params: list[Any] | None) -> Any:
     responses: dict[str, Any] = {
-        "system.version_short": "25.10.5",
+        "system.version_short": "25.10.4",
         "pool.query": [
             {
                 "name": "tank",

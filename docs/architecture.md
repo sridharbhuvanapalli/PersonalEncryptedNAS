@@ -5,7 +5,7 @@
 **Status:** Accepted, 2026-08-06.
 
 Use the latest maintenance release recommended by the official TrueNAS Software
-Status page (25.10.5 when this decision was recorded). Do not deploy beta releases
+Status page (25.10.4 when revalidated on 2026-08-12). Do not deploy beta releases
 for family data.
 
 TrueNAS was chosen because it provides native OpenZFS and RAIDZ2 administration,
@@ -39,6 +39,12 @@ TrueNAS boots from the Samsung PM830 128 GB SATA SSD. The Inland TN320 1 TB NVMe
 the initial single-device `apps` pool. The Inland 512 GB SATA SSD forms a separate
 single-device `app-recovery` pool for local database/configuration recovery copies.
 Neither single-device pool is redundant, and `app-recovery` is not an offsite backup.
+
+The four SAS members of `tank` use one port of a genuine LSI SAS 9300-8i in P16 IT/HBA
+mode through a forward SFF-8643-to-4 × 7-pin breakout. The four SATA archive members and
+two SATA SSDs occupy all six motherboard SATA ports. The HBA's second SFF-8643 port is
+reserved for at most four future SAS disks, but that physical headroom does not approve
+or define a future ZFS topology.
 
 A future NVMe with at least 1 TB usable capacity is attached to the TN320's existing
 data vdev to convert `apps` from a one-device stripe into a two-device mirror. This does

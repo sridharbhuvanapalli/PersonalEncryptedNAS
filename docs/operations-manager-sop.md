@@ -7,6 +7,11 @@ TrueNAS pool, disk, application, alert, capacity, and optional Tailscale observa
 It does not replace the TrueNAS UI, backup logs, or recovery documentation, and it does
 not directly execute storage, restore, update, or expansion mutations.
 
+It is deterministic safety-gated automation, not an autonomous AI agent: it does not use
+an LLM, invent remediation, change its own policy, or execute a plan on its own. Human
+review, the relevant runbook, an explicit CLI confirmation, and the implementation's
+safety gates remain required for every supported change.
+
 ## Initial setup
 
 1. Create a TrueNAS automation user with only the roles required to read system version,
@@ -100,6 +105,8 @@ action, and resolution time.
 ### Weekly
 
 - Review disk temperatures and SMART warnings.
+- Review HBA/controller and SAS-link alerts; investigate resets, missing WWNs, or rising
+  interface-error counts immediately, and physically confirm HBA airflow.
 - Check Nextcloud and Immich background jobs.
 - Confirm certificate renewal and private DNS from one LAN and one tailnet client.
 - Review failed logins and manager audit events.
@@ -115,6 +122,8 @@ action, and resolution time.
 - Perform a selected-file Restic restore to a temporary location and verify its hash.
 - Review TrueNAS and application updates without installing them automatically.
 - Check UPS self-test/battery information and physical dust/temperature condition.
+- Confirm the three included rear fans and any added HBA/HDD fans are operating and that
+  cabling has not shifted into a fan path.
 
 ### Quarterly
 

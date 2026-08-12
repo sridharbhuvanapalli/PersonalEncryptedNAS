@@ -10,7 +10,8 @@ See the complete
 
 ## Required
 
-- JONSBO N5 with 12 hot-swap 3.5-inch bays; eight initially populated.
+- JONSBO N5 with 12 hot-swap 3.5-inch bays; eight initially populated; verify its three
+  included rear 120 mm fans.
 - Four SAS and four SATA data connections plus eight safe drive-power connections;
   no molded adapters.
 - Genuine LSI SAS 9300-8i (SAS3008) in P16 IT/HBA mode for the SAS disks, using a
@@ -18,6 +19,7 @@ See the complete
   hardware RAID before ZFS.
 - Directed airflow over the 9300-8i heatsink, a unique nonzero SAS address, both HBA
   ports tested, and PCIe Gen3 x8 link evidence in the preferred CPU-connected slot.
+- One forward SFF-8643-to-4 × 7-pin breakout, preferably 75 cm; 60–100 cm is acceptable.
 - Samsung PM830 128 GB dedicated TrueNAS boot SSD, accepted only after health testing.
 - Inland TN320 1 TB NVMe for Apps; verify its health before use and never
   place Apps on the TrueNAS boot device.
@@ -34,7 +36,7 @@ See the complete
 
 - 32 GB RAM, 2.5 Gb Ethernet, a future second ≥1 TB Apps NVMe mirror member, Intel Quick Sync for
   Immich transcoding, ECC where supported, and drives from varied batches.
-- Cabling clear of airflow, a rapid replacement plan, and UPS capacity
+- Cabling clear of airflow, measured HDD/HBA thermals, a rapid replacement plan, and UPS capacity
   sized for the final eight-drive system.
 
 ## Optional

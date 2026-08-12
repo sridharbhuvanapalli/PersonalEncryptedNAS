@@ -4,7 +4,7 @@ from typing import Any, Protocol
 
 from pnas.models import HardwareInventory
 
-SUPPORTED_API_VERSIONS = frozenset({"25.10", "25.10.4", "25.10.5"})
+SUPPORTED_API_VERSIONS = frozenset({"25.10", "25.10.4"})
 
 
 class UnsupportedAPIVersionError(RuntimeError):

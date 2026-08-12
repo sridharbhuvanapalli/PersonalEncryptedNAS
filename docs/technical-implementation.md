@@ -119,6 +119,12 @@ capacity does not authorize a ZFS expansion, which requires its own topology and
 review. The N5 backplane path must prove SAS enumeration and stable I/O before `tank`
 is created.
 
+The N5 supplies three rear 120 mm fans. They remain installed for commissioning, but a
+separate directed airflow path is required over the passively cooled 9300-8i. A 75 cm
+forward breakout is preferred; 60–100 cm is acceptable when routed without sharp bends
+or airflow obstruction. Final intake-fan population is determined by simultaneous
+eight-drive and HBA burn-in rather than chassis fan-slot count alone.
+
 ## Configuration and deployment
 
 1. Create the development environment:
@@ -192,6 +198,11 @@ read-role JSON-RPC calls: TrueNAS version, pools, disks, applications, and activ
 alerts. Calls are timeout-bounded and a failure produces a timestamped degraded view
 without including exception text.
 
+The manager is conventional deterministic automation rather than an AI agent. It has no
+LLM, autonomous goal loop, self-modifying policy, or authority to improvise or execute
+remediation. Its role is observation, rule-based warnings, and recording reviewed
+change intent for a separate human-confirmed workflow.
+
 The manager receives its API key from a read-only secret file. SQLite contains only
 observations and audit metadata. Login requires a scrypt password and optional TOTP;
 sessions are HMAC-signed, one hour, Secure, HttpOnly, and SameSite Strict. CSRF and
@@ -200,6 +211,14 @@ password reauthentication protect action planning.
 The web UI does not execute backup restores, updates, pool creation/expansion, or other
 mutations. It creates a reviewed intent; the corresponding CLI workflow provides the
 separate plan, confirmation, and audit gate.
+
+The existing UniFi Network control plane stays on the laptop through initial NAS
+commissioning so a NAS outage cannot simultaneously remove storage and network-control
+visibility. A later migration to a supported TrueNAS App or custom container is allowed
+only as a separately reviewed optional workload after the storage and recovery gates
+pass. This repository does not currently deploy UniFi. Any later deployment must import
+a verified configuration backup, pin its revision, expose no WAN port, and limit its
+management interface to the trusted LAN and administrator tailnet policy.
 
 ## Security failure modes
 

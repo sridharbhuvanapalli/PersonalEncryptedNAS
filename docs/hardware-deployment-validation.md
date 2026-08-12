@@ -8,6 +8,8 @@ only copy of family data, perform and record:
 - genuine LSI SAS 9300-8i acceptance evidence: SAS3008 identity, P16 IT mode, unique
   nonzero SAS address, both SFF-8643 ports tested, directed cooling, PCIe Gen3 x8 link,
   two successful cold boots, and no controller/link resets during sustained I/O;
+- all three included N5 rear fans operational, dedicated HBA airflow present, cable
+  routing clear of fan blades, and acceptable HDD/HBA thermals during simultaneous load;
 - real API method/schema probes against the installed TrueNAS version;
 - `tank` and `archive` creation as independent RAIDZ2 pools on explicitly confirmed serials;
 - `apps` creation from only the TN320 1 TB NVMe and independent `app-recovery` creation

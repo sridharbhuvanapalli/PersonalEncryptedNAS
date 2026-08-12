@@ -2,7 +2,8 @@
 
 `pnas-install` does not install or modify the TrueNAS base OS. Use the official
 TrueNAS Community Edition installer and choose the latest maintenance release
-recommended for general users by the Software Status page (25.10.5 on 2026-08-06).
+recommended for general users by the Software Status page (25.10.4 when revalidated on
+2026-08-12). Check that page again immediately before downloading the installer.
 
 1. Download the ISO only from TrueNAS and verify the published SHA-256 checksum.
 2. Write it to dedicated installer media and boot the NAS in UEFI mode.
