@@ -24,7 +24,9 @@ snapshot ID, file, date, and result. Never restore tests over production paths.
 1. Obtain replacement hardware and verify every component and drive identity.
 2. Install the supported TrueNAS maintenance release on a dedicated boot SSD.
 3. Restore the TrueNAS configuration only after reviewing network and device mappings.
-4. Recreate/import the intended pools without formatting backup media.
+4. Import `tank` and `archive` independently. Confirm all four member serials for each
+   pool and never add the archive vdev to `tank`. Recreate a missing pool only from its
+   independent backup; do not format surviving or backup media.
 5. Unlock encrypted roots using verified offline keys.
 6. Recreate application datasets and ACLs; deploy pinned Compose projects stopped.
 7. Restore configuration, databases, then family originals from Restic.
@@ -36,4 +38,3 @@ snapshot ID, file, date, and result. Never restore tests over production paths.
 If keys are lost, encrypted datasets are unrecoverable. If Restic credentials or
 password are lost, the offsite repository cannot be restored. Never store the only
 copy of either on the NAS.
-

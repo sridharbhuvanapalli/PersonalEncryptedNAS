@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pnas.config import StorageConfig
 from pnas.models import ExecutionPlan, HardwareInventory
-from pnas.preflight import validate_drive_selection, validate_phase2_preconditions
+from pnas.preflight import validate_archive_preconditions, validate_drive_selection
 
 
 class StalePlanError(RuntimeError):
@@ -43,34 +43,50 @@ def create_storage_plan(
     selected_serials: tuple[str, ...],
     lifetime_minutes: int = 30,
 ) -> ExecutionPlan:
-    if action not in {"phase1-create", "phase2-expand"}:
+    if action not in {"main-create", "archive-create"}:
         raise ValueError("unsupported storage action")
-    if action == "phase2-expand":
-        validate_phase2_preconditions(inventory, selected_serials)
+    if action == "archive-create":
+        validate_archive_preconditions(inventory, selected_serials)
     drives = validate_drive_selection(inventory, selected_serials, storage)
-    if action == "phase2-expand":
-        existing_capacities = {
-            drive.capacity_bytes for drive in inventory.drives if drive.role == "data"
-        }
-        new_capacity = drives[0].capacity_bytes
-        if existing_capacities and new_capacity not in existing_capacities:
-            if not storage.allow_asymmetric_vdev:
-                raise ValueError(
-                    "new vdev capacity differs from the existing vdev; separate asymmetric "
-                    "capacity approval is required"
-                )
+    expected_transport: str
+    expected_model: str
+    accepted_model_identifiers: tuple[str, ...]
+    if action == "main-create":
+        pool_name = storage.pool_name
+        expected_capacity_tb = storage.drive_capacity_tb
+        expected_transport = storage.required_transport
+        expected_sector_bytes = storage.required_logical_sector_bytes
+        expected_model = storage.drive_model
+        accepted_model_identifiers = ("hc550", "wuh721818")
+    else:
+        pool_name = storage.archive_pool.pool_name
+        expected_capacity_tb = storage.archive_pool.drive_capacity_tb
+        expected_transport = storage.archive_pool.required_transport
+        expected_sector_bytes = storage.archive_pool.required_logical_sector_bytes
+        expected_model = storage.archive_pool.drive_model
+        accepted_model_identifiers = ("dt01aca300",)
+    expected_capacity_bytes = int(expected_capacity_tb * 1_000_000_000_000)
+    if any(drive.capacity_bytes != expected_capacity_bytes for drive in drives):
+        raise ValueError(f"{pool_name} requires four {expected_capacity_tb:g} TB drives")
+    if any(drive.transport.lower() != expected_transport for drive in drives):
+        raise ValueError(f"{pool_name} requires {expected_transport.upper()} drives")
+    if any(drive.logical_sector_bytes != expected_sector_bytes for drive in drives):
+        raise ValueError(
+            f"{pool_name} requires {expected_sector_bytes}-byte logical sectors on every drive"
+        )
+    if any(
+        not any(identifier in drive.model.casefold() for identifier in accepted_model_identifiers)
+        for drive in drives
+    ):
+        raise ValueError(f"{pool_name} requires the configured {expected_model} drive family")
     now = datetime.now(UTC)
-    operation = (
-        f"create pool {storage.pool_name} with one four-drive RAIDZ2 vdev"
-        if action == "phase1-create"
-        else f"add one four-drive RAIDZ2 data vdev to {storage.pool_name}"
-    )
+    operation = f"create independent pool {pool_name} with one four-drive RAIDZ2 vdev"
     return ExecutionPlan(
         plan_id=str(uuid.uuid4()),
         created_at=now,
         expires_at=now + timedelta(minutes=lifetime_minutes),
         action=action,
-        pool_name=storage.pool_name,
+        pool_name=pool_name,
         inventory_fingerprint=inventory_fingerprint(inventory),
         selected_serials=tuple(drive.serial or "" for drive in drives),
         selected_stable_ids=tuple(drive.stable_id or "" for drive in drives),
@@ -84,7 +100,13 @@ def create_storage_plan(
             "no selected device is boot or application storage",
             "all selected drives pass health policy",
         ),
-        metadata={"vdev_type": "RAIDZ2", "vdev_width": 4},
+        metadata={
+            "vdev_type": "RAIDZ2",
+            "vdev_width": 4,
+            "expected_model": expected_model,
+            "required_transport": expected_transport,
+            "independent_pool": True,
+        },
     )
 
 

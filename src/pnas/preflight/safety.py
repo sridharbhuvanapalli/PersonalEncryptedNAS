@@ -82,7 +82,7 @@ def validate_drive_selection(
     return tuple(selected)
 
 
-def validate_phase2_preconditions(
+def validate_archive_preconditions(
     inventory: HardwareInventory, selected_serials: tuple[str, ...]
 ) -> None:
     failures: list[str] = []

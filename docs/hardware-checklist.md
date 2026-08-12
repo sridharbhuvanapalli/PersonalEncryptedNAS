@@ -9,11 +9,14 @@ optional RTX 2060, and Phanteks Enthoo Pro. See the complete
 ## Required
 
 - Eight 3.5-inch bays with airflow across every drive.
-- Eight SATA data and eight safe SATA power connections; no molded adapters.
-- Motherboard SATA or supported HBA in IT/JBOD mode; no hardware RAID before ZFS.
+- Four SAS and four SATA data connections plus eight safe drive-power connections;
+  no molded adapters.
+- Genuine LSI SAS 9207-8i in P20 IT mode for the SAS disks; motherboard SATA for the
+  Toshiba disks; no hardware RAID before ZFS.
 - x86_64 CPU with hardware AES, 16 GB RAM minimum, and dedicated 128 GB+ boot SSD.
 - Separate 500 GB+ application SSD; never use the TrueNAS boot device for apps.
-- Four initial equal-capacity 12 TB or 16 TB CMR NAS/enterprise SATA drives.
+- Four WD Ultrastar DC HC550 18 TB 512e SAS drives for `tank`.
+- Four Toshiba DT01ACA300 3 TB 512e SATA drives for `archive`.
 - PSU sized for eight-drive startup current and USB-connected NUT-compatible UPS.
 - 1 Gb Ethernet, static address or DHCP reservation, compatible switch and cabling.
 - TrueNAS installer USB, administrator computer, offsite/USB backup destination,
@@ -23,7 +26,7 @@ optional RTX 2060, and Phanteks Enthoo Pro. See the complete
 
 - 32 GB RAM, 2.5 Gb Ethernet, mirrored application SSDs, Intel Quick Sync for
   Immich transcoding, ECC where supported, and drives from varied batches.
-- Cabling clear of airflow, a cold spare or rapid replacement plan, and UPS capacity
+- Cabling clear of airflow, a rapid replacement plan, and UPS capacity
   sized for the final eight-drive system.
 
 ## Optional
@@ -38,7 +41,10 @@ logs, and temporary processing data. Original documents and media remain on RAID
 
 ## Drive acceptance
 
-Record bay, model, serial, stable `/dev/disk/by-id/` identity, capacity, sectors,
-CMR/SMR status, SMART health and extended-test result, temperature, power-on hours,
+Record bay, model, serial, stable `/dev/disk/by-id/` identity, capacity, interface,
+logical/physical sectors, recording method, SMART health and extended-test result,
+temperature, power-on hours,
 and supplied warranty data. Reject USB flash, unhealthy, undersized, unidentified,
 boot, and application devices. Do not select a pool disk by `/dev/sdX` alone.
+Confirm every HC550 label is a SAS 512e `WUH721818AL52xx` variant before cabling; do
+not mix it with a SATA or 4Kn variant in the same vdev.

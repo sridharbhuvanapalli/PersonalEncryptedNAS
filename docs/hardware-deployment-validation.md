@@ -3,9 +3,10 @@
 Software and mock validation do not make the NAS production-ready. Before storing the
 only copy of family data, perform and record:
 
-- component inventory, CMR verification, SMART long tests, and destructive burn-in;
+- component inventory, SAS/SATA and 512e verification, SMART long tests, and destructive
+  burn-in for all eight disks;
 - real API method/schema probes against the installed TrueNAS version;
-- Phase 1 pool creation on explicitly confirmed serials;
+- `tank` and `archive` creation as independent RAIDZ2 pools on explicitly confirmed serials;
 - dataset key export, offline storage, lock/unlock, and reboot behavior;
 - snapshot single-file recovery and both database restores;
 - Restic selected-file and full-loss recovery exercises;
@@ -16,8 +17,9 @@ only copy of family data, perform and record:
 - LAN access during ISP outage and remote Tailscale ACL checks;
 - proof that router/public scans cannot reach services;
 - one application update and supported rollback;
-- Phase 2 rehearsal with a changed-inventory rejection.
+- archive-pool rehearsal with a changed-inventory rejection;
+- proof that removing either pool from a mock/recovery exercise does not invalidate the
+  topology of the other pool.
 
 Production readiness is granted only after evidence for every applicable item is
 stored with the offline recovery documentation.
-

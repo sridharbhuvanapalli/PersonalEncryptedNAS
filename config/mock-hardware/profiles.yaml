@@ -34,10 +34,12 @@ profiles:
     data_drive_count: 8
     drive_capacity_bytes: 4000000000000
     pool_healthy: false
-  phase2-expansion:
+  archive-deployment:
     data_drive_count: 8
     assigned_data_drive_count: 4
-    drive_capacity_bytes: 8000000000000
+    capacities_bytes: [18000000000000, 18000000000000, 18000000000000, 18000000000000, 3000000000000, 3000000000000, 3000000000000, 3000000000000]
+    models: [WD Ultrastar DC HC550, WD Ultrastar DC HC550, WD Ultrastar DC HC550, WD Ultrastar DC HC550, Toshiba DT01ACA300, Toshiba DT01ACA300, Toshiba DT01ACA300, Toshiba DT01ACA300]
+    transports: [sas, sas, sas, sas, sata, sata, sata, sata]
     database_dumps_current: true
     snapshots_current: true
     offsite_backup_current: true

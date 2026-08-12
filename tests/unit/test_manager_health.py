@@ -16,7 +16,16 @@ async def fake_call(method: str, params: list[Any] | None) -> Any:
                 "allocated": 700,
                 "free": 300,
                 "scan": {"function": "SCRUB", "state": "FINISHED"},
-            }
+            },
+            {
+                "name": "archive",
+                "status": "ONLINE",
+                "healthy": True,
+                "size": 500,
+                "allocated": 100,
+                "free": 400,
+                "scan": {"function": "SCRUB", "state": "FINISHED"},
+            },
         ],
         "disk.query": [{"name": "sda", "smart_result": "PASSED"}],
         "app.query": [{"name": "immich", "state": "RUNNING"}],
@@ -33,7 +42,9 @@ def test_live_health_normalizes_read_only_api_data(tmp_path: Path) -> None:
     )
     snapshot = LiveHealthProvider(fake_call, tailscale_status_file=status).snapshot()
     assert snapshot["mode"] == "live"
-    assert snapshot["storage"]["utilization_percent"] == 70.0
+    assert snapshot["storage"]["pools"][0]["utilization_percent"] == 70.0
+    assert snapshot["storage"]["all_pools_healthy"] is True
+    assert len(snapshot["storage"]["pools"]) == 2
     assert snapshot["services"]["immich"] == "RUNNING"
     assert snapshot["services"]["tailscale"]["status"] == "online"
 
@@ -47,3 +58,15 @@ def test_health_failure_degrades_without_leaking_exception_text() -> None:
     assert snapshot["mode"] == "degraded"
     assert snapshot["stale"] is True
     assert "secret-value" not in str(snapshot)
+
+
+def test_live_health_marks_missing_required_pool_unhealthy() -> None:
+    async def one_pool_call(method: str, params: list[Any] | None) -> Any:
+        response = await fake_call(method, params)
+        if method == "pool.query":
+            return response[:1]
+        return response
+
+    snapshot = LiveHealthProvider(one_pool_call).snapshot()
+    assert snapshot["storage"]["all_pools_healthy"] is False
+    assert "Expected pool archive is missing" in snapshot["warnings"]

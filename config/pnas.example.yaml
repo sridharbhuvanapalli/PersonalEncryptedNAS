@@ -15,17 +15,29 @@ storage:
   chassis_bays: 8
   deployment_phase: 1
   expected_drive_count: 4
-  drive_capacity_tb: null
+  drive_capacity_tb: 18
+  drive_model: WD Ultrastar DC HC550
+  required_transport: sas
+  required_logical_sector_bytes: 512
   pool_name: tank
   vdev_layout: raidz2
   vdev_width: 4
-  expected_final_vdev_count: 2
   maximum_utilization_percent: 80
   warning_utilization_percent: 70
   require_cmr: true
   require_smart_extended_test: true
   require_serial_confirmation: true
-  allow_asymmetric_vdev: false
+  archive_pool:
+    pool_name: archive
+    expected_drive_count: 4
+    drive_capacity_tb: 3
+    drive_model: Toshiba DT01ACA300
+    required_transport: sata
+    required_logical_sector_bytes: 512
+    vdev_layout: raidz2
+    vdev_width: 4
+    maximum_utilization_percent: 80
+    warning_utilization_percent: 70
   application_device_serials: [APPSSD001]
   boot_device_serials: [BOOTSSD001]
 

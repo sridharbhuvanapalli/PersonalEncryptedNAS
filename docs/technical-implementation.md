@@ -73,7 +73,7 @@ are rejected.
 ## Storage layout
 
 ```text
-tank                         four equal 12 TB or 16 TB disks, RAIDZ2
+tank                         four 18 TB HC550 SAS 512e disks, RAIDZ2
 ├── family-files             encrypted root
 │   └── nextcloud-data
 ├── family-photos            encrypted root
@@ -81,7 +81,7 @@ tank                         four equal 12 TB or 16 TB disks, RAIDZ2
 ├── database-dumps           encrypted root
 └── local-backups            encrypted root
 
-archive                      two 3 TB disks, mirror; separately administered
+archive                      four 3 TB DT01ACA300 SATA 512e disks, RAIDZ2
 
 apps                         NVMe application pool, mirror preferred
 ├── app-config
@@ -89,11 +89,15 @@ apps                         NVMe application pool, mirror preferred
 └── immich-generated
 ```
 
-The third 3 TB disk is an offline cold spare. The code deliberately automates only
-four-wide RAIDZ2 plans; it does not create the archive mirror. Real pool mutation also
-remains disabled until live inventory normalization and hardware validation are
-completed. Use the TrueNAS UI for the reviewed initial deployment while preserving the
-serial-verification checklist.
+Both pools use independently reviewed four-wide RAIDZ2 plans. The archive plan creates
+a new pool and never extends `tank`. Real pool mutation remains disabled until live
+inventory normalization and hardware validation are completed. Use the TrueNAS UI for
+the reviewed initial deployment while preserving the serial-verification checklist.
+
+Physical connections are deliberately asymmetric: one 9207-8i SFF-8087 port fans out
+to four SFF-8482 SAS connectors for the HC550s, while four motherboard SATA ports serve
+the Toshiba archive disks. An SFF-8643 cable does not fit this HBA and a SATA-only
+breakout cannot operate SAS drives.
 
 ## Configuration and deployment
 
@@ -109,6 +113,9 @@ serial-verification checklist.
 2. Copy `config/pnas.example.yaml` to `config/pnas.yaml`. Replace addresses, serials,
    administrator email, TrueNAS URL, and credential path. Keep every false-valued
    public-exposure invariant unchanged.
+
+   Keep the storage identity constraints intact: `tank` requires four 18 TB SAS 512e
+   HC550/WUH721818 drives, and `archive` requires four 3 TB SATA 512e DT01ACA300 drives.
 
 3. Create fixed application networks once:
 
@@ -170,7 +177,7 @@ observations and audit metadata. Login requires a scrypt password and optional T
 sessions are HMAC-signed, one hour, Secure, HttpOnly, and SameSite Strict. CSRF and
 password reauthentication protect action planning.
 
-The web UI does not execute backup restores, updates, storage expansion, or other
+The web UI does not execute backup restores, updates, pool creation/expansion, or other
 mutations. It creates a reviewed intent; the corresponding CLI workflow provides the
 separate plan, confirmation, and audit gate.
 

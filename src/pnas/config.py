@@ -32,31 +32,58 @@ class TrueNASConfig(StrictModel):
         return self
 
 
+class ArchivePoolConfig(StrictModel):
+    pool_name: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_.:-]*$")
+    expected_drive_count: Literal[4] = 4
+    drive_capacity_tb: float = Field(default=3.0, gt=0)
+    drive_model: Literal["Toshiba DT01ACA300"] = "Toshiba DT01ACA300"
+    required_transport: Literal["sata"] = "sata"
+    required_logical_sector_bytes: Literal[512] = 512
+    vdev_layout: Literal["raidz2"] = "raidz2"
+    vdev_width: Literal[4] = 4
+    maximum_utilization_percent: int = Field(default=80, ge=50, le=90)
+    warning_utilization_percent: int = Field(default=70, ge=40, le=85)
+
+    @model_validator(mode="after")
+    def validate_thresholds(self) -> ArchivePoolConfig:
+        if self.drive_capacity_tb != 3.0:
+            raise ValueError("archive pool requires 3 TB drives")
+        if self.warning_utilization_percent >= self.maximum_utilization_percent:
+            raise ValueError("archive warning utilization must be below maximum utilization")
+        return self
+
+
 class StorageConfig(StrictModel):
     chassis_bays: int = Field(ge=8)
     deployment_phase: Literal[1, 2]
     expected_drive_count: int = Field(ge=4, le=8)
-    drive_capacity_tb: float | None = Field(default=None, gt=0)
+    drive_capacity_tb: float = Field(default=18.0, gt=0)
+    drive_model: Literal["WD Ultrastar DC HC550"] = "WD Ultrastar DC HC550"
+    required_transport: Literal["sas"] = "sas"
+    required_logical_sector_bytes: Literal[512] = 512
     pool_name: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_.:-]*$")
     vdev_layout: Literal["raidz2"] = "raidz2"
     vdev_width: Literal[4] = 4
-    expected_final_vdev_count: Literal[2] = 2
     maximum_utilization_percent: int = Field(default=80, ge=50, le=90)
     warning_utilization_percent: int = Field(default=70, ge=40, le=85)
     require_cmr: bool = True
     require_smart_extended_test: bool = True
     require_serial_confirmation: bool = True
-    allow_asymmetric_vdev: bool = False
+    archive_pool: ArchivePoolConfig
     application_device_serials: tuple[str, ...]
     boot_device_serials: tuple[str, ...]
 
     @model_validator(mode="after")
     def validate_thresholds(self) -> StorageConfig:
+        if self.drive_capacity_tb != 18.0:
+            raise ValueError("main pool requires 18 TB drives")
         if self.warning_utilization_percent >= self.maximum_utilization_percent:
             raise ValueError("warning utilization must be below maximum utilization")
         expected = 4 if self.deployment_phase == 1 else 8
         if self.expected_drive_count != expected:
             raise ValueError(f"phase {self.deployment_phase} requires {expected} expected drives")
+        if self.pool_name == self.archive_pool.pool_name:
+            raise ValueError("main and archive pool names must be different")
         return self
 
 

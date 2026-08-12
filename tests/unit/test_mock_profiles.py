@@ -36,7 +36,10 @@ def test_fault_profiles_build() -> None:
     )
 
 
-def test_phase2_profile_has_four_new_unassigned_drives() -> None:
-    inventory = build_inventory_profile("phase2-expansion")
+def test_archive_profile_has_four_new_unassigned_sata_drives() -> None:
+    inventory = build_inventory_profile("archive-deployment")
     assert len([drive for drive in inventory.drives if drive.role == "data"]) == 4
-    assert len([drive for drive in inventory.drives if drive.role == "unassigned"]) == 4
+    archive = [drive for drive in inventory.drives if drive.role == "unassigned"]
+    assert len(archive) == 4
+    assert {drive.capacity_bytes for drive in archive} == {3_000_000_000_000}
+    assert {drive.transport for drive in archive} == {"sata"}

@@ -6,10 +6,8 @@ from pnas.planning.capacity import BYTES_PER_TB, calculate_raidz2_capacity
 @pytest.mark.parametrize(
     ("count", "size_tb", "raw_tb", "usable_tb", "target_tib"),
     [
-        (4, 4, 16, 8, 5.8207660913),
-        (8, 4, 32, 16, 11.6415321827),
-        (4, 8, 32, 16, 11.6415321827),
-        (8, 8, 64, 32, 23.2830643654),
+        (4, 3, 12, 6, 4.3655745685),
+        (4, 18, 72, 36, 26.1934474111),
     ],
 )
 def test_capacity_profiles(

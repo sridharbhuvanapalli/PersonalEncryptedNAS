@@ -27,10 +27,12 @@ class LiveHealthProvider:
         *,
         tailscale_status_file: Path | None = None,
         timeout_seconds: float = 10,
+        required_pool_names: tuple[str, ...] = ("tank", "archive"),
     ):
         self.call = call
         self.tailscale_status_file = tailscale_status_file
         self.timeout_seconds = timeout_seconds
+        self.required_pool_names = required_pool_names
 
     async def _collect(self) -> list[Any]:
         operations = (
@@ -50,15 +52,30 @@ class LiveHealthProvider:
         disks = disks_raw if isinstance(disks_raw, list) else []
         apps = apps_raw if isinstance(apps_raw, list) else []
         alerts = alerts_raw if isinstance(alerts_raw, list) else []
-        pool = pools[0] if pools and isinstance(pools[0], dict) else {}
-        size = pool.get("size")
-        allocated = pool.get("allocated")
-        utilization = (
-            round(float(allocated) / float(size) * 100, 1)
-            if isinstance(size, int) and size > 0 and isinstance(allocated, int)
-            else None
-        )
-        scan = pool.get("scan") if isinstance(pool.get("scan"), dict) else {}
+        normalized_pools: list[dict[str, Any]] = []
+        for raw_pool in pools:
+            if not isinstance(raw_pool, dict):
+                continue
+            size = raw_pool.get("size")
+            allocated = raw_pool.get("allocated")
+            utilization = (
+                round(float(allocated) / float(size) * 100, 1)
+                if isinstance(size, int) and size > 0 and isinstance(allocated, int)
+                else None
+            )
+            scan = raw_pool.get("scan") if isinstance(raw_pool.get("scan"), dict) else {}
+            normalized_pools.append(
+                {
+                    "pool_name": raw_pool.get("name"),
+                    "pool_health": raw_pool.get("status", "UNKNOWN"),
+                    "pool_healthy": bool(raw_pool.get("healthy", False)),
+                    "size_bytes": size,
+                    "allocated_bytes": allocated,
+                    "free_bytes": raw_pool.get("free"),
+                    "utilization_percent": utilization,
+                    "scan": scan,
+                }
+            )
         app_states = {
             str(app.get("name", "unknown")): str(app.get("state", "UNKNOWN"))
             for app in apps
@@ -75,6 +92,14 @@ class LiveHealthProvider:
             for alert in alerts
             if isinstance(alert, dict) and not alert.get("dismissed", False)
         ]
+        warnings.extend(
+            f"Pool {pool['pool_name'] or 'unknown'} is not healthy"
+            for pool in normalized_pools
+            if not pool["pool_healthy"]
+        )
+        observed_pool_names = {str(pool["pool_name"]) for pool in normalized_pools}
+        missing_pool_names = set(self.required_pool_names) - observed_pool_names
+        warnings.extend(f"Expected pool {name} is missing" for name in sorted(missing_pool_names))
         tailscale: dict[str, Any] = {"status": "not-observed"}
         if self.tailscale_status_file is not None and self.tailscale_status_file.is_file():
             import json
@@ -96,14 +121,10 @@ class LiveHealthProvider:
             "stale": False,
             "storage": {
                 "truenas_version": str(version),
-                "pool_name": pool.get("name"),
-                "pool_health": pool.get("status", "UNKNOWN"),
-                "pool_healthy": bool(pool.get("healthy", False)),
-                "size_bytes": size,
-                "allocated_bytes": allocated,
-                "free_bytes": pool.get("free"),
-                "utilization_percent": utilization,
-                "scan": scan,
+                "pools": normalized_pools,
+                "all_pools_healthy": not missing_pool_names
+                and bool(normalized_pools)
+                and all(pool["pool_healthy"] for pool in normalized_pools),
             },
             "disks": {
                 "assigned": len(disks),
@@ -148,19 +169,37 @@ def mock_health_snapshot() -> dict[str, Any]:
         "stale": False,
         "storage": {
             "truenas_version": "25.10.5 (planned target)",
-            "pool_health": "MOCK_HEALTHY",
-            "vdev_topology": ["4-drive RAIDZ2"],
+            "all_pools_healthy": True,
+            "pools": [
+                {
+                    "pool_name": "tank",
+                    "pool_health": "MOCK_HEALTHY",
+                    "pool_healthy": True,
+                    "vdev_topology": ["4 x 18 TB SAS RAIDZ2"],
+                    "raw_tb": 72.0,
+                    "nominal_tib": 32.74,
+                    "utilization_percent": None,
+                    "latest_scrub": "fixture-success",
+                },
+                {
+                    "pool_name": "archive",
+                    "pool_health": "MOCK_HEALTHY",
+                    "pool_healthy": True,
+                    "vdev_topology": ["4 x 3 TB SATA RAIDZ2"],
+                    "raw_tb": 12.0,
+                    "nominal_tib": 5.46,
+                    "utilization_percent": None,
+                    "latest_scrub": "fixture-success",
+                },
+            ],
             "dataset_encryption": "mock-unlocked",
-            "raw_tb": 16.0,
-            "nominal_tib": 7.28,
             "actual_free_tib": None,
             "snapshot_usage_tib": None,
             "utilization_percent": None,
             "forecast_70_percent": None,
             "forecast_80_percent": None,
-            "latest_scrub": "fixture-success",
         },
-        "disks": {"assigned": 4, "empty_bays": 4, "unassigned": 0, "warnings": []},
+        "disks": {"assigned": 8, "empty_bays": 0, "unassigned": 0, "warnings": []},
         "protection": {
             "latest_snapshot": None,
             "latest_backup": None,

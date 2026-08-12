@@ -48,6 +48,8 @@ def build_inventory_profile(
     if capacities is None:
         capacities = [profile["drive_capacity_bytes"]] * profile["data_drive_count"]
     assigned = int(profile.get("assigned_data_drive_count", len(capacities)))
+    models = profile.get("models", [])
+    transports = profile.get("transports", [])
     drives = _base_drives()
     for index, capacity in enumerate(capacities, start=1):
         serial: str | None = f"DATA{index:03d}"
@@ -56,13 +58,23 @@ def build_inventory_profile(
         smart = (
             SmartState.FAILED if profile.get("failed_smart_serial") == serial else SmartState.PASSED
         )
+        transport = str(transports[index - 1]) if index <= len(transports) else "sata"
         drives.append(
             Drive(
                 bay=index,
-                model=f"NAS CMR {int(capacity) // 1_000_000_000_000}TB",
+                model=(
+                    str(models[index - 1])
+                    if index <= len(models)
+                    else f"NAS CMR {int(capacity) // 1_000_000_000_000}TB"
+                ),
                 serial=serial,
-                stable_id=f"/dev/disk/by-id/ata-{serial}" if serial else None,
+                stable_id=(
+                    f"/dev/disk/by-id/{'wwn' if transport == 'sas' else 'ata'}-{serial}"
+                    if serial
+                    else None
+                ),
                 capacity_bytes=int(capacity),
+                transport=transport,
                 cmr=True,
                 smart=smart,
                 smart_extended_passed=smart == SmartState.PASSED,

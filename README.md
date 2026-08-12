@@ -1,7 +1,7 @@
 # Personal Encrypted NAS
 
 Safety-first tooling and deployment artifacts for a private family NAS built on
-TrueNAS Community Edition, two staged four-drive RAIDZ2 vdevs, encrypted ZFS
+TrueNAS Community Edition, two independent four-drive RAIDZ2 pools, encrypted ZFS
 datasets, Nextcloud, Immich, Tailscale, snapshots, and encrypted Restic backups.
 
 This project is deliberately conservative:

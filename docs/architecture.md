@@ -17,20 +17,22 @@ TrueNAS base OS; management runs on a trusted workstation or supported container
 
 ## Storage topology
 
-Phase 1 creates one four-drive RAIDZ2 vdev. Phase 2 adds another four-drive
-RAIDZ2 vdev to the same pool. It never adds single-disk stripes. Losing an entire
-data vdev loses the pool; each four-drive RAIDZ2 vdev tolerates any two failures
-within that vdev. Adding a vdev is treated as a permanent architecture change.
+Phase 1 creates `tank` from four WD Ultrastar DC HC550 18 TB SAS 512e disks in one
+RAIDZ2 vdev. Phase 2 creates `archive` as an independent pool from four Toshiba
+DT01ACA300 3 TB SATA 512e disks in one RAIDZ2 vdev. The archive vdev is never added to
+`tank`. Each pool tolerates any two member-drive failures; losing an entire vdev loses
+only its own pool, not the other pool.
 
 The pool root remains unencrypted. Independent encrypted dataset roots are created
 for family files, photos, database dumps, and local backups. The separate `apps`
 SSD pool holds databases, caches, thumbnails, encoded video, logs, and container
 state. Original files and photos remain on `tank`.
 
-The acquired first-stage layout is one four-disk RAIDZ2 vdev made from four equal
-12 TB or four equal 16 TB enterprise SATA CMR disks. Two 3 TB disks form a separate
-archive mirror administered through TrueNAS; the third 3 TB disk is an offline cold
-spare. The automation does not model or create that mirror.
+`tank` holds active originals and protected datasets. `archive` holds archival data but
+is not a backup merely because it is a separate pool in the same chassis. The older
+desktop Toshiba drives require full burn-in, closer monitoring, and independent backup.
+The automation models both pool plans but leaves real destructive mutation disabled
+until live inventory normalization and hardware validation are complete.
 
 ## ADR-002: Tailnet-only remote access
 
@@ -69,10 +71,8 @@ and fails closed on versions outside the explicit compatibility set.
 
 | Configuration | Raw decimal TB | Nominal RAIDZ2 TB | Approx. TiB | 80% target TiB |
 |---|---:|---:|---:|---:|
-| 4 × 12TB | 48 | 24 | 21.8 | 17.5 |
-| 8 × 12TB | 96 | 48 | 43.7 | 34.9 |
-| 4 × 16TB | 64 | 32 | 29.1 | 23.3 |
-| 8 × 16TB | 128 | 64 | 58.2 | 46.6 |
+| `tank`: 4 × 18 TB | 72 | 36 | 32.7 | 26.2 |
+| `archive`: 4 × 3 TB | 12 | 6 | 5.46 | 4.37 |
 
 Manufacturers advertise decimal TB while TrueNAS commonly presents binary TiB.
 Metadata, reservations, snapshots, and application data further reduce free space.
@@ -89,3 +89,5 @@ snapshots are not backups.
 - [TrueNAS remote access](https://www.truenas.com/docs/solutions/remoteaccess/)
 - [Tailscale grants](https://tailscale.com/docs/features/access-control/grants)
 - [Tailscale DNS](https://tailscale.com/docs/reference/dns-in-tailscale)
+- [WD Ultrastar DC HC550 data sheet](https://documents.westerndigital.com/content/dam/doc-library/en_us/assets/public/western-digital/product/data-center-drives/ultrastar-dc-hc500-series/data-sheet-ultrastar-dc-hc550.pdf)
+- [Toshiba DT01ACA product overview](https://storage.toshiba.com/docs/desktop-pc-hard-drive-documents/dt01aca-product-overview.pdf)

@@ -61,6 +61,11 @@ Do not attach any future ZFS data disk during initial firmware or TrueNAS instal
 10. Direct an intake or small fan across the HBA heatsink; server HBAs expect forced air.
 11. Connect front-panel buttons/LEDs, front USB, chassis intrusion if desired, and fans.
 
+Before installing disk cabling, confirm the HBA has two internal SFF-8087 ports. Obtain
+one forward SFF-8087-to-4×SFF-8482 SAS harness with appropriate power inputs. Do not buy
+SFF-8643 or SFF-8087-to-SATA-only breakout cables for the four HC550 SAS drives. Also
+obtain four latching SATA data cables long enough to reach bays 5–8 without tension.
+
 ## 5. First boot without data disks
 
 1. Connect a monitor to the motherboard, a keyboard, wired Ethernet, and power through
@@ -104,30 +109,39 @@ Do not attach any future ZFS data disk during initial firmware or TrueNAS instal
 ## 8. Install and accept disks
 
 1. Power the system off and disconnect AC before attaching disks.
-2. Place the four equal 12 TB or four equal 16 TB disks in bays 1–4.
-3. Place the two active 3 TB archive disks in bays 5–6.
-4. Keep the third 3 TB cold spare in an antistatic container, labeled with model, serial,
-   last SMART-test date, and intended pool. Do not leave it powered merely to fill bay 7.
-5. Connect HBA port groups using only SFF-8087 **forward** breakout cables.
+2. Place the four WD Ultrastar DC HC550 18 TB SAS 512e disks in bays 1–4.
+3. Place the four Toshiba DT01ACA300 3 TB SATA 512e disks in bays 5–8. The Enthoo Pro
+   has six native 3.5-inch locations, so the ventilated 5.25-inch cage must provide at
+   least the other two locations.
+4. Connect the four HC550s to one HBA SFF-8087 port with the forward four-lane SFF-8482
+   SAS harness. Connect the Toshiba disks to four motherboard SATA ports.
+5. Before final cable management, verify all eight disks spin and enumerate. If an
+   HC550 does not spin, stop and resolve SAS Power Disable compatibility using a proper
+   harness or backplane; do not tape drive pins or use improvised adapters.
 6. Spread disk power across the PSU's approved harnesses. Avoid sharp cable bends and
    any connector that feels loose or hot.
 7. Boot and map physical bay, HBA port, stable `/dev/disk/by-id` name, model, serial,
    capacity, and temperature for every disk.
-8. Confirm every large disk is SATA and CMR. A SAS disk requires compatible SAS cabling
-   or a SAS backplane; it must not be forced onto a SATA-only connection.
+8. Confirm each HC550 reports SAS, 18 TB, 512-byte logical sectors, and a model identifier
+   matching `HC550` or `WUH721818`; confirm each Toshiba reports SATA, 3 TB, 512-byte
+   logical sectors, and `DT01ACA300`. Do not mix SATA/SAS or 4Kn/512e variants inside a
+   vdev.
 9. Run SMART short and long tests, then a destructive burn-in before storing data.
-10. Reject disks with reallocated/pending sectors, interface errors that follow the disk,
+10. Run the full burn-in with direct airflow over all drives and the HBA. Stagger SMART
+    long tests during normal operation rather than starting all eight simultaneously.
+11. Reject disks with reallocated/pending sectors, interface errors that follow the disk,
     unexplained temperature excursions, capacity mismatch, or failed SMART tests.
 
 ## 9. Create storage and protection
 
-1. Create `tank` as one four-disk RAIDZ2 vdev only after recording and confirming all
-   four serial numbers.
-2. Create the two-disk archive mirror separately through a reviewed TrueNAS workflow.
-   The current automation intentionally does not create this non-RAIDZ2 pool.
+1. Generate `pnas-install main-plan` and create `tank` as one four-HC550 RAIDZ2 vdev
+   only after recording and confirming all four serial numbers.
+2. Generate `pnas-install archive-plan` and create `archive` as a separate four-Toshiba
+   RAIDZ2 pool. Verify the operation says `create independent pool archive`; it must
+   never say add/extend `tank`.
 3. Create encrypted dataset roots, export their keys, and verify the offline copies.
-4. Configure snapshots, monthly scrubs, staggered SMART tests, alerts, quotas, and the
-   70/80-percent utilization thresholds.
+4. Configure snapshots, separate monthly scrub dates, staggered SMART tests, alerts,
+   quotas, and 70/80-percent utilization thresholds for both pools.
 5. Configure encrypted Restic backup before importing the only copy of family data.
 6. Configure the UPS USB connection and perform a controlled shutdown test.
 

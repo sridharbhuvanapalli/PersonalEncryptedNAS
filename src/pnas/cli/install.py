@@ -25,7 +25,7 @@ def main(
     ctx: typer.Context,
     config: str = typer.Option("config/pnas.example.yaml", help="Validated YAML configuration."),
     fixture: str = typer.Option(
-        "tests/fixtures/inventory-four-4tb.json", help="Mock inventory fixture."
+        "tests/fixtures/inventory-four-hc550-18tb.json", help="Mock inventory fixture."
     ),
     state_dir: Path = typer.Option(Path("var"), help="Local plan and audit state."),
 ) -> None:
@@ -69,14 +69,20 @@ def inventory_command(ctx: typer.Context) -> None:
 
 @app.command("capacity-plan")
 def capacity_plan(ctx: typer.Context) -> None:
-    inventory = asyncio.run(_inventory(ctx))
-    drives = [drive for drive in inventory.drives if drive.role == "data"]
-    if len(drives) not in (4, 8) or len({drive.capacity_bytes for drive in drives}) != 1:
-        raise typer.BadParameter("capacity plan requires four or eight equal-capacity data drives")
+    storage = context_config(ctx).storage
     emit_json(
-        calculate_raidz2_capacity(
-            drive_count=len(drives), drive_capacity_bytes=drives[0].capacity_bytes
-        )
+        {
+            "main": calculate_raidz2_capacity(
+                drive_count=4,
+                drive_capacity_bytes=int(storage.drive_capacity_tb * 1_000_000_000_000),
+            ).model_dump(mode="json"),
+            "archive": calculate_raidz2_capacity(
+                drive_count=4,
+                drive_capacity_bytes=int(
+                    storage.archive_pool.drive_capacity_tb * 1_000_000_000_000
+                ),
+            ).model_dump(mode="json"),
+        }
     )
 
 
@@ -98,17 +104,17 @@ def _create_plan(ctx: typer.Context, action: str, serials: list[str], output: Pa
     console.print(f"Required confirmation: {required_confirmation(plan)}")
 
 
-@app.command("phase1-plan")
-def phase1_plan(
+@app.command("main-plan")
+def main_plan(
     ctx: typer.Context,
     serial: list[str] = typer.Option(..., "--serial", help="Repeat for each selected drive."),
-    output: Path = typer.Option(Path("var/phase1-plan.json")),
+    output: Path = typer.Option(Path("var/main-plan.json")),
 ) -> None:
-    _create_plan(ctx, "phase1-create", serial, output)
+    _create_plan(ctx, "main-create", serial, output)
 
 
-@app.command("expansion-preflight")
-def expansion_preflight(ctx: typer.Context) -> None:
+@app.command("archive-preflight")
+def archive_preflight(ctx: typer.Context) -> None:
     inventory = asyncio.run(_inventory(ctx))
     emit_json(
         {
@@ -116,17 +122,22 @@ def expansion_preflight(ctx: typer.Context) -> None:
             "scrub_succeeded": inventory.scrub_succeeded,
             "resilver_active": inventory.resilver_active,
             "ups_connected": inventory.ups_connected,
+            "database_dumps_current": inventory.database_dumps_current,
+            "snapshots_current": inventory.snapshots_current,
+            "offsite_backup_current": inventory.offsite_backup_current,
+            "restore_test_recent": inventory.restore_test_recent,
+            "burn_in_passed_serials": list(inventory.burn_in_passed_serials),
         }
     )
 
 
-@app.command("expansion-plan")
-def expansion_plan(
+@app.command("archive-plan")
+def archive_plan(
     ctx: typer.Context,
     serial: list[str] = typer.Option(..., "--serial"),
-    output: Path = typer.Option(Path("var/phase2-plan.json")),
+    output: Path = typer.Option(Path("var/archive-plan.json")),
 ) -> None:
-    _create_plan(ctx, "phase2-expand", serial, output)
+    _create_plan(ctx, "archive-create", serial, output)
 
 
 def _apply_plan(
@@ -148,24 +159,24 @@ def _apply_plan(
     )
 
 
-@app.command("phase1-apply")
-def phase1_apply(
+@app.command("main-apply")
+def main_apply(
     ctx: typer.Context,
     plan: Path = typer.Option(..., exists=True),
     confirmation: str = typer.Option(..., prompt=True, hide_input=False),
     execute: bool = typer.Option(False, help="Request actual execution; dry-run otherwise."),
 ) -> None:
-    _apply_plan(ctx, plan, confirmation, execute=execute, action="phase1-create")
+    _apply_plan(ctx, plan, confirmation, execute=execute, action="main-create")
 
 
-@app.command("phase2-apply")
-def phase2_apply(
+@app.command("archive-apply")
+def archive_apply(
     ctx: typer.Context,
     plan: Path = typer.Option(..., exists=True),
     confirmation: str = typer.Option(..., prompt=True, hide_input=False),
     execute: bool = typer.Option(False),
 ) -> None:
-    _apply_plan(ctx, plan, confirmation, execute=execute, action="phase2-expand")
+    _apply_plan(ctx, plan, confirmation, execute=execute, action="archive-create")
 
 
 @app.command()

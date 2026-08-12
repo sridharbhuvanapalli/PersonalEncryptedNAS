@@ -9,7 +9,7 @@ from pnas.preflight import UnsafeDriveSelectionError, validate_drive_selection
 
 @pytest.fixture
 def context():  # type: ignore[no-untyped-def]
-    adapter = MockTrueNASAdapter(Path("tests/fixtures/inventory-four-4tb.json"))
+    adapter = MockTrueNASAdapter(Path("tests/fixtures/inventory-four-hc550-18tb.json"))
     return adapter, load_config(Path("config/pnas.example.yaml"))
 
 
