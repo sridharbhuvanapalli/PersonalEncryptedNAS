@@ -5,6 +5,9 @@ only copy of family data, perform and record:
 
 - component inventory, SAS/SATA and 512e verification, SMART long tests, and destructive
   burn-in for all eight disks;
+- genuine LSI SAS 9300-8i acceptance evidence: SAS3008 identity, P16 IT mode, unique
+  nonzero SAS address, both SFF-8643 ports tested, directed cooling, PCIe Gen3 x8 link,
+  two successful cold boots, and no controller/link resets during sustained I/O;
 - real API method/schema probes against the installed TrueNAS version;
 - `tank` and `archive` creation as independent RAIDZ2 pools on explicitly confirmed serials;
 - `apps` creation from only the TN320 1 TB NVMe and independent `app-recovery` creation

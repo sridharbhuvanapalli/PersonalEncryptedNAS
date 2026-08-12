@@ -13,8 +13,11 @@ See the complete
 - JONSBO N5 with 12 hot-swap 3.5-inch bays; eight initially populated.
 - Four SAS and four SATA data connections plus eight safe drive-power connections;
   no molded adapters.
-- Genuine LSI SAS 9207-8i in P20 IT mode for the SAS disks; motherboard SATA for the
-  Toshiba disks; no hardware RAID before ZFS.
+- Genuine LSI SAS 9300-8i (SAS3008) in P16 IT/HBA mode for the SAS disks, using a
+  forward SFF-8643-to-4 × 7-pin breakout; motherboard SATA for the Toshiba disks; no
+  hardware RAID before ZFS.
+- Directed airflow over the 9300-8i heatsink, a unique nonzero SAS address, both HBA
+  ports tested, and PCIe Gen3 x8 link evidence in the preferred CPU-connected slot.
 - Samsung PM830 128 GB dedicated TrueNAS boot SSD, accepted only after health testing.
 - Inland TN320 1 TB NVMe for Apps; verify its health before use and never
   place Apps on the TrueNAS boot device.

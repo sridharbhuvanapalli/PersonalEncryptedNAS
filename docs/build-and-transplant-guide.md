@@ -16,7 +16,8 @@ it for TrueNAS. Pool creation remains a separate, serial-confirmed operation.
 5. Capture Samsung PM830 and Inland 512 GB SATA SMART data plus Inland TN320 NVMe
    health/error logs before dismantling. Record model, serial, capacity, and firmware.
 6. Download the MSI motherboard manual, current stable BIOS, TrueNAS ISO and checksum,
-   HBA P20 IT firmware evidence, and NIC firmware before taking the system offline.
+   the official Broadcom 9300-8i firmware package/documentation, and NIC firmware before
+   taking the system offline.
 7. Shut Windows down normally, switch the old PSU off, unplug it, and press the power
    button for ten seconds.
 
@@ -71,11 +72,12 @@ Do not attach any future ZFS data disk during initial firmware or TrueNAS instal
 10. Direct an intake or small fan across the HBA heatsink; server HBAs expect forced air.
 11. Connect front-panel buttons/LEDs, front USB, chassis intrusion if desired, and fans.
 
-Before installing disk cabling, confirm the HBA has two internal SFF-8087 ports. For the
-N5, obtain one forward SFF-8087-to-4×7-pin breakout long enough to reach the selected
-backplane ports; the cable terminates at the backplane, not at the drives. Also obtain
-four 60–90 cm latching SATA cables for the archive ports. Do not buy SFF-8643 or reverse
-breakout cables.
+Before installing disk cabling, confirm the card is a genuine **LSI SAS 9300-8i**, not a
+9300-8e or RAID-only substitute, and has two internal SFF-8643 ports. For the N5, obtain
+one forward SFF-8643-to-4×7-pin breakout long enough to reach the selected backplane
+ports; the cable terminates at the backplane, not at the drives. Also provide four
+latching SATA cables for the archive ports and two for the SATA SSDs. Do not buy an
+SFF-8087, reverse-breakout, or SFF-8482 drive-end cable for this connection.
 
 ## 5. First boot without data disks
 
@@ -103,8 +105,14 @@ breakout cables.
    assuming a single error is harmless.
 3. Run a CPU load test from temporary boot media and verify cooler mounting and fan
    response. Do not overclock.
-4. Verify that the HBA is genuine, reports IT mode, and runs P20 firmware. It must expose
-   individual disks, not RAID virtual disks.
+4. Verify that the HBA is a genuine LSI SAS 9300-8i with SAS3008 controller, reports
+   Product ID/firmware mode `IT`, and runs the approved P16 firmware. It must expose
+   individual disks, not RAID virtual disks. Record `sas3flash -listall` and
+   `sas3flash -list` output, including firmware version and a unique nonzero SAS address.
+5. In an environment that provides `lspci`, record `lspci -nn` and `lspci -vv` evidence.
+   In the preferred CPU-connected slot, `LnkSta` should report PCIe Gen3 (8 GT/s) at x8.
+6. Test both SFF-8643 ports independently with a known-good SAS disk during the seller's
+   return window, even though only one port is populated at initial deployment.
 
 ## 7. Install TrueNAS safely
 
@@ -132,7 +140,7 @@ breakout cables.
    leave four bays empty.
 3. Insert the four HC550 18 TB SAS 512e disks into the main-pool bays and the four
    DT01ACA300 3 TB SATA 512e disks into the archive bays.
-4. Connect the four HC550 backplane ports to one HBA SFF-8087 port with the forward
+4. Connect the four HC550 backplane ports to one HBA SFF-8643 port with the forward
    four-lane breakout. Connect the four Toshiba backplane ports to motherboard SATA.
 5. Before final cable management, verify all eight disks spin and enumerate. Jonsbo's
    page describes hot-swap HDD support but does not explicitly guarantee SAS. Treat

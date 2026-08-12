@@ -31,22 +31,24 @@ counterfeit listings avoided.
 
 | Qty | Component | Recommended specification | Planning range |
 |---:|---|---|---:|
-| 1 | HBA | Genuine LSI SAS 9207-8i, P20 IT-mode firmware | $40–90 |
-| 1 | HBA-to-backplane cable | Forward SFF-8087 host to 4 × 7-pin SATA-style backplane ports, 60–90 cm | $20–40 |
-| 4 | SATA data cables | Latching, 60–90 cm, motherboard to archive backplane ports | $20–40 total |
+| 1 | HBA | Genuine LSI SAS 9300-8i (SAS3008), P16 IT/HBA-mode firmware; two internal SFF-8643 ports and full-height bracket | $45–100 |
+| 1 | HBA-to-backplane cable | Forward SFF-8643 host to 4 × 7-pin SATA-style backplane ports, 60–90 cm | $20–40 |
+| 1 future | Second HBA-to-backplane cable | Same forward SFF-8643-to-4 × 7-pin cable, reserved for a separately approved four-disk `tank` expansion | $20–40 |
+| 6 | SATA data cables | Latching cables: four for archive backplane ports and two for the SATA SSDs | $25–55 total |
 | 1 | UPS | CyberPower CP1500PFCLCD 1500 VA / 1000 W pure sine | $220–275 |
 | 0–1 future | Second application NVMe | At least 1 TB usable capacity; matched endurance preferred; attach as a TN320 mirror member | $50–100 |
 | 2–5 | Fans | Quality PWM intake/replacement fans for HDDs and HBA, subject to measured thermals | $25–75 |
 | 1 lot | Service parts | Thermal paste, labels, cable ties, spare SATA cable | $15–30 |
 
-Expected remaining incremental total excluding data disks and the already acquired case,
-PSU, and SSDs is approximately **$360–650**. Deduct the UPS, HBA, cables, second NVMe, or
-fans if already owned or not selected. Do not reduce cost by using a hardware RAID
-card, counterfeit HBA, USB boot flash drive, unverified SMR disks, or molded SATA power
-splitters. An SFF-8643 cable does not fit the 9207-8i. The N5 backplane requires the
-SFF-8087 cable to terminate in four 7-pin data connectors rather than SFF-8482 drive
-plugs. SAS support through this pass-through backplane must be proven with all four
-HC550s before creating `tank`.
+Expected initial incremental total excluding data disks and the already acquired case,
+PSU, and SSDs is approximately **$350–575**. The future cable and second NVMe add about
+**$70–140** when approved. Deduct the UPS, HBA, cables, or fans if already owned. Do not
+reduce cost by using a hardware RAID card, counterfeit HBA, USB boot flash drive,
+unverified SMR disks, or molded SATA power splitters. The 9300-8i requires a **forward**
+SFF-8643-to-4 × 7-pin breakout; SFF-8087,
+reverse-breakout, and SFF-8482 drive-end cables are not substitutes for this N5
+backplane path. SAS support through the pass-through backplane must be proven with all
+four HC550s before creating `tank`.
 
 ## Solid-state pool layout
 
@@ -67,7 +69,7 @@ Preferred low-power configuration:
 
 1. Remove the RTX 2060.
 2. Enable the i7-12700K integrated graphics.
-3. Put the 9207-8i in the CPU-connected PCIe x16 slot, where it can negotiate its native
+3. Put the 9300-8i in the CPU-connected PCIe x16 slot, where it can negotiate its native
    PCIe 3.0 x8 link.
 
 If the RTX 2060 is retained, place it in the CPU x16 slot and place the HBA in the
@@ -110,11 +112,13 @@ of the other, and RAIDZ2 does not replace an offsite backup.
 
 - The photographed HC550 labels state SAS and 512e. Confirm all four full model suffixes
   begin `WUH721818AL52` before installation; other HC550 suffixes can be SATA or 4Kn.
-- Connect the four HC550 backplane data ports to one 9207-8i SFF-8087 port using a
-  forward 4 × 7-pin breakout. A SAS controller can run the SAS-3 disks at the
-  controller's negotiated SAS-2 link rate, which is ample for four HDDs.
+- Connect the four HC550 backplane data ports to one 9300-8i SFF-8643 port using a
+  forward 4 × 7-pin breakout. This provides native SAS-3 connectivity. Reserve the
+  second SFF-8643 port for as many as four future SAS disks, but do not connect or add
+  them until their ZFS topology and backup impact receive a separate review.
 - Connect the four Toshiba backplane data ports to four motherboard SATA ports. SATA
-  controllers cannot operate SAS drives.
+  controllers cannot operate SAS drives. The two SATA SSDs use the remaining two
+  motherboard ports, so all six motherboard SATA ports are occupied initially.
 - The N5 backplane is a pass-through connection, not a storage controller. Before pool
   creation, confirm all four HC550s enumerate simultaneously as SAS devices with unique
   WWNs, SMART data, correct capacity, and no link resets. If any fail, stop and replace
@@ -123,8 +127,9 @@ of the other, and RAIDZ2 does not replace an offsite backup.
   a PWDIS-compatible SAS power/backplane solution; do not tape pins or improvise power
   adapters.
 - Provide direct intake airflow across all eight 7200-RPM disks and forced airflow over
-  the HBA heatsink. Validate steady-state and simultaneous burn-in temperatures before
-  commissioning.
+  the HBA heatsink. The passively cooled server HBA requires directed airflow in a tower
+  chassis. Validate steady-state and simultaneous burn-in temperatures, and reject any
+  configuration that produces controller resets, link errors, or thermal instability.
 
 The eight disks draw roughly 44 W idle and 61 W during typical read/write activity from
 their published values; startup current is materially higher. The 1000 W PSU has ample
@@ -136,6 +141,7 @@ remain operational constraints.
 - [MSI PRO Z790-P WIFI DDR4 specifications](https://us.msi.com/Motherboard/PRO-Z790-P-WIFI-DDR4/Specification)
 - [JONSBO N5 specifications and installation manual](https://www.jonsbo.com/en/products/N5Black.html)
 - [JONSBO N5 backplane and cabling review](https://nascompares.com/2024/10/04/jonsbo-n5-review/)
+- [Broadcom LSI SAS 9300-8i installation guide](https://docs.broadcom.com/doc/12354877)
 - [ASRock SL-1000G specifications](https://asrock.com/Power-Supply/SteelLegend/SL-1000G/)
 - [Samsung 128 GB SSD 830 support](https://www.samsung.com/dk/support/model/MZ-7PC128D/EU/)
 - [CyberPower CP1500PFCLCD specifications](https://www.cyberpowersystems.com/product/ups/pfc-sinewave/cp1500pfclcd/)

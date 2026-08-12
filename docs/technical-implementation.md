@@ -111,10 +111,13 @@ member. The `apps` pool/dataset names remain unchanged, so application, Caddy, T
 DNS, and Compose paths do not migrate. The change is complete only after resilver,
 scrub, application checks, and a restore test pass.
 
-Physical connections are deliberately asymmetric: one 9207-8i SFF-8087 port fans out
-to four individual N5 backplane data ports for the HC550s, while four motherboard SATA
-ports serve four archive backplane ports. An SFF-8643 cable does not fit this HBA. The
-N5 backplane path must prove SAS enumeration and stable I/O before `tank` is created.
+Physical connections are deliberately asymmetric: one genuine LSI SAS 9300-8i
+SFF-8643 port uses a forward four-lane breakout to four individual N5 backplane data
+ports for the HC550s, while four motherboard SATA ports serve four archive backplane
+ports. The second HBA port is reserved for up to four future SAS disks; physical
+capacity does not authorize a ZFS expansion, which requires its own topology and backup
+review. The N5 backplane path must prove SAS enumeration and stable I/O before `tank`
+is created.
 
 ## Configuration and deployment
 
