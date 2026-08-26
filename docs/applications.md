@@ -20,8 +20,8 @@ deployment path in this repository.
 The default Caddy configuration uses an internal CA. The private-hosting workflow can
 instead issue publicly trusted certificates through DNS-01 using a scoped Cloudflare
 token or RFC2136 TSIG key. It does not create public service A/AAAA records. Maintain
-private LAN DNS entries so local service continues during an ISP outage. Never forward
-router ports 80 or 443. The custom proxy image is pinned to the security-fixed Caddy
+the Firewalla Custom DNS Rule so local service continues during an ISP outage. Never
+create a Firewalla mapping to NAS ports 53, 80, or 443. The custom proxy image is pinned to the security-fixed Caddy
 2.11.4 release and immutable DNS-plugin commits. See
 [private HTTPS hosting](private-hosting.md) and the
 [production runbook](production-installation-runbook.md).

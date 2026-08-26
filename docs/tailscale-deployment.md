@@ -11,6 +11,10 @@
    administrators additionally receive SSH TCP 22. There is no wildcard port grant.
 6. Do not enable Funnel, an exit node, or broad subnet routes.
 
+The Firewalla Gold SE needs no port forward or inbound allow rule for Tailscale. Keep
+its default ingress firewall enabled. Direct connectivity is negotiated from outbound
+traffic; DERP remains the encrypted fallback.
+
 ## One-time NAS enrollment
 
 1. In the Tailscale admin console, create a one-off, short-lived, pre-approved auth key
@@ -74,8 +78,9 @@ pnasctl --config config/pnas.yaml tailscale-doctor --status-file tailscale-statu
 ```
 
 The report should show the expected hostname and a direct peer connection. If DERP is
-reported, confirm UDP is not blocked and compare performance with `iperf3`; do not open
-router TCP 443 as a workaround. All Tailscale connection types remain WireGuard
+reported, confirm ordinary outbound UDP is not intentionally blocked in Firewalla and
+compare performance with `iperf3`; do not open Firewalla TCP 443 as a workaround. All
+Tailscale connection types remain WireGuard
 encrypted, but relays usually reduce throughput.
 
 ## Client and user lifecycle

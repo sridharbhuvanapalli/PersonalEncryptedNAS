@@ -34,10 +34,17 @@ Let's Encrypt
   -> no HTTP connection to the NAS
 ```
 
-The Verizon FiOS WAN address is not in configuration. All peer connections originate
-outbound and Tailscale negotiates a direct UDP path where possible. DERP is an encrypted
+The Firewalla Gold SE is the router connected to the Verizon FiOS ONT. The residential
+WAN address is not in configuration. All peer connections originate outbound and
+Tailscale negotiates a direct UDP path where possible. DERP is an encrypted
 fallback with lower expected throughput. No DDNS client, router port forwarding, UPnP,
 Tailscale Funnel, Cloudflare Tunnel, or public service origin is used.
+
+Firewalla reserves the TrueNAS management address. The service address is a static
+alias in the same LAN but outside the dynamic DHCP range. Firewalla's supported Custom
+DNS Rule maps `nas.cloudpathz.com` and its subdomains to the service address. Its default
+ingress firewall remains enabled, UPnP is disabled for the NAS network, and NAT Settings
+contains no NAS mapping. Tailscale requires no inbound exception.
 
 Network separation:
 

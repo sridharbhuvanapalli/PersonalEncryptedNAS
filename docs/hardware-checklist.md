@@ -3,7 +3,7 @@
 ## Final platform-specific checklist
 
 The final platform is the i7-12700K, MSI PRO Z790-P WIFI DDR4, 48 GB DDR4-3200,
-optional RTX 2060, JONSBO N5, acquired ASRock SL-1000G, Samsung PM830 128 GB SATA
+optional RTX 2060, JONSBO N5, acquired Montech Century II 1050W, Samsung PM830 128 GB SATA
 boot SSD, Inland TN320 1 TB NVMe application SSD, and Inland 512 GB SATA recovery SSD.
 See the complete
 [hardware BOM](hardware-bom.md) and [transplant guide](build-and-transplant-guide.md).
@@ -27,7 +27,8 @@ See the complete
 - Four WD Ultrastar DC HC550 18 TB 512e SAS drives for `tank`.
 - Four Toshiba DT01ACA300 3 TB 512e SATA drives for `archive`.
 - PSU sized for eight-drive startup current and USB-connected NUT-compatible UPS.
-- All original SL-1000G modular harnesses and all required N5 backplane power inputs.
+- All original Century II modular harnesses and all required N5 backplane power inputs;
+  never reuse a modular cable from another PSU.
 - 1 Gb Ethernet, static address or DHCP reservation, compatible switch and cabling.
 - TrueNAS installer USB, administrator computer, offsite/USB backup destination,
   offline encryption-key storage, recovery documentation, and replacement SATA cable.

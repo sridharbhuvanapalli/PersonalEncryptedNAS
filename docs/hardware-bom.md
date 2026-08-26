@@ -9,7 +9,7 @@
 | Memory | 48 GB DDR4-3200 | Keep only after extended memory validation |
 | GPU | NVIDIA RTX 2060 | Optional; remove initially to reduce idle power |
 | Chassis | JONSBO N5 NAS PC Case | Use; 12 hot-swap 3.5-inch bays, 2–4 dedicated 2.5-inch positions, and three included rear 120 mm fans |
-| PSU | ASRock Steel Legend SL-1000G | Acquired; retain all original modular cables |
+| PSU | Montech Century II 1050W | Acquired; retain every original Montech modular cable |
 | TrueNAS boot SSD | Samsung SSD PM830 128 GB SATA | Acquired; reuse only after SMART/health validation |
 | Application SSD | Inland TN320 1 TB NVMe | Acquired; initial single-device `apps`, future mirror member 1 |
 | Recovery SSD | Inland 512 GB 2.5-inch SATA III 6 Gb/s | Acquired; separate single-device `app-recovery` pool |
@@ -86,22 +86,23 @@ enumeration, cooling clearance, and throughput during burn-in.
 
 ## Power design
 
-The SL-1000G is ATX 3.1/PCIe 5.1, fully modular, 80 PLUS Gold, Cybenetics Platinum,
-and provides nine SATA power connectors and a ten-year warranty. Never use modular PSU
-cables from another PSU model, even when the connector fits. The initial configuration
-needs power for both N5 backplane PCBs plus the Samsung SATA boot SSD. The N5 backplanes
-aggregate drive power, so do not budget one PSU plug per HDD. Inspect the exact backplane
-revision and populate every power input required by the Jonsbo manual/PCB labeling using
-only original ASRock harnesses; do not assume one connected input safely powers a full
-backplane.
+The Montech Century II 1050W is a fully modular 140 × 150 × 86 mm ATX supply. Its
+single 12 V rail is rated for 87.5 A/1050 W, it has a 135 mm FDB fan, six listed
+electrical protections, three SATA harnesses with four connectors each, and a ten-year
+warranty. Never use a modular cable from any other PSU:
+modular pinouts are not interchangeable even when the connector fits. The initial
+configuration needs power for both N5 backplane PCBs plus the Samsung SATA boot SSD.
+The N5 backplanes aggregate drive power, so do not budget one PSU connector per HDD.
+Populate every input required by the Jonsbo manual or PCB labeling using only the
+original Montech harnesses; do not assume one input safely powers a full backplane.
 
 For future operation, use only manufacturer-approved additional PSU cables and keep each
 N5 backplane powered within its documented rating. Do not daisy-chain cheap adapters.
 
 The CP1500PFCLCD supplies 1500 VA / 1000 W, sine-wave output, and USB HID communication.
-Connect the NAS, network switch, and FiOS ONT/router only after measuring total load and
-preserving adequate shutdown runtime. Connect its USB management port directly to the
-NAS for NUT-based shutdown.
+Connect the NAS, network switch, Verizon FiOS ONT, and Firewalla Gold SE only after
+measuring total load and preserving adequate shutdown runtime. Connect the UPS USB
+management port directly to the NAS for NUT-based shutdown.
 
 ## Disk layout
 
@@ -139,7 +140,7 @@ of the other, and RAIDZ2 does not replace an offsite backup.
   configuration that produces controller resets, link errors, or thermal instability.
 
 The eight disks draw roughly 44 W idle and 61 W during typical read/write activity from
-their published values; startup current is materially higher. The 1000 W PSU has ample
+their published values; startup current is materially higher. The 1050 W PSU has ample
 capacity, but power-harness quality, connector count, airflow, and staggered test load
 remain operational constraints.
 
@@ -149,7 +150,7 @@ remain operational constraints.
 - [JONSBO N5 specifications and installation manual](https://www.jonsbo.com/en/products/N5Black.html)
 - [JONSBO N5 backplane and cabling review](https://nascompares.com/2024/10/04/jonsbo-n5-review/)
 - [Broadcom LSI SAS 9300-8i installation guide](https://docs.broadcom.com/doc/12354877)
-- [ASRock SL-1000G specifications](https://asrock.com/Power-Supply/SteelLegend/SL-1000G/)
+- [Montech Century II 1050W specifications](https://www.montechpc.com/century-ii-1050w)
 - [Samsung 128 GB SSD 830 support](https://www.samsung.com/dk/support/model/MZ-7PC128D/EU/)
 - [CyberPower CP1500PFCLCD specifications](https://www.cyberpowersystems.com/product/ups/pfc-sinewave/cp1500pfclcd/)
 - [WD Ultrastar DC HC550 data sheet](https://documents.westerndigital.com/content/dam/doc-library/en_us/assets/public/western-digital/product/data-center-drives/ultrastar-dc-hc500-series/data-sheet-ultrastar-dc-hc550.pdf)

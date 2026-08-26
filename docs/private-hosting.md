@@ -6,6 +6,12 @@ and the NAS Tailscale address. CoreDNS provides separate LAN and tailnet views f
 the workflow never creates public NAS A/AAAA records, a Cloudflare Tunnel, router
 forwarding, UPnP, or Tailscale Funnel.
 
+For this home, the router is a Firewalla Gold SE. Use **Services > Custom DNS Rules**
+for the LAN `nas.cloudpathz.com` mapping, reserve only the TrueNAS management address,
+keep the service alias outside the dynamic DHCP range, and verify **Network > NAT
+Settings > Port Forwarding** contains no NAS mapping. Preserve the default ingress
+firewall; Tailscale needs no inbound rule.
+
 Follow these runbooks in order:
 
 1. [Production installation and commissioning](production-installation-runbook.md)

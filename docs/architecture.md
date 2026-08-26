@@ -60,8 +60,12 @@ Remote access uses the supported TrueNAS Tailscale App with host networking enab
 userspace networking disabled. The NAS is a tagged, persistent node. Family users receive
 private DNS and HTTPS; administrators additionally receive optional non-root SSH.
 
-The Verizon residential WAN address is not an input. There is no DDNS, router forwarding,
-UPnP, Funnel, exit-node advertisement, Cloudflare Tunnel, or public service origin.
+The Firewalla Gold SE is the router between the Verizon FiOS ONT and the LAN. The
+residential WAN address is not an input. There is no DDNS, Firewalla port forwarding or
+DMZ, NAS UPnP mapping, Funnel, exit-node advertisement, Cloudflare Tunnel, or public
+service origin. Firewalla reserves the management IP and provides the supported LAN
+Custom DNS Rule for `nas.cloudpathz.com`; the service IP is a static TrueNAS alias
+outside Firewalla's dynamic DHCP range.
 Cloudflare is authoritative for `cloudpathz.com` and services ACME DNS-01 only. Two
 CoreDNS views answer `nas.cloudpathz.com` privately for LAN and tailnet clients.
 

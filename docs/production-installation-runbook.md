@@ -28,7 +28,7 @@ what success looks like; do not type it.
 - Never put data disks into a motherboard RAID/RST array. TrueNAS must see each disk.
 - Never add the future NVMe as a new striped vdev. It becomes the second member of the
   existing `apps` mirror.
-- Never forward router ports 53, 80, or 443 to this NAS.
+- Never create a Firewalla NAT/port-forward mapping for NAS ports 53, 80, or 443.
 - Never enable UPnP, Tailscale Funnel, Cloudflare Tunnel, DDNS, or public service A/AAAA
   records.
 - Never type a password, API key, encryption key, or Cloudflare token directly in a
@@ -49,7 +49,7 @@ what success looks like; do not type it.
 | Four Toshiba DT01ACA300 3 TB SATA/512e disks | `archive`, one four-wide RAIDZ2 vdev |
 | Genuine LSI/Broadcom SAS 9300-8i | P16 IT mode; HC550 disks only initially |
 | Forward SFF-8643-to-4×SATA breakout | Prefer 75 cm; one populated HBA port |
-| ASRock Steel Legend SL-1000G | Installed PSU |
+| Montech Century II 1050W | Installed PSU; use only its original modular cables |
 | JONSBO N5 | Three included rear fans plus directed HBA airflow |
 
 Windows 11 is not the base operating system. This deployment installs TrueNAS Community
@@ -217,8 +217,11 @@ dedicated USB device. Select the USB by manufacturer and capacity. Do not select
 internal SSD. This guide intentionally does not provide a `dd` command because choosing
 the wrong target would overwrite a computer disk.
 
-Create a second USB using MemTest86 or Memtest86+ from its official site. If HBA and disk
-testing was not already completed, create an Ubuntu live USB as well.
+Create a second USB using MemTest86 or Memtest86+ from its official site. Also download
+the current Ubuntu Desktop LTS ISO and use Etcher to create an Ubuntu live USB. Download
+the Broadcom 9300-8i/SAS3008 SAS3Flash package before taking the NAS offline. Extract
+the Linux `sas3flash` executable and `sas3flash.efi` onto a separate FAT32 utility USB;
+these utilities are not built into Ubuntu or the MSI motherboard firmware.
 
 **PASS gate 1:** the checksum matches exactly and all USB devices appear as UEFI boot
 choices. Save the ISO filename, source URL, checksum, and date.
@@ -249,29 +252,51 @@ error count other than zero. Photograph the final screen.
 
 ### Step 2.3 — verify the HBA without flashing it
 
-**Where:** Ubuntu live terminal or supported UEFI HBA utility
+**Where:** the Ubuntu desktop running from the live USB on the NAS itself
 
-Try the installed Broadcom utility name:
+The Ubuntu live terminal is a Terminal window inside a temporary Ubuntu session:
+
+1. Connect a monitor and keyboard to the NAS. Use the motherboard video output when the
+   i7-12700K integrated graphics is enabled, or the RTX 2060 output if it is active.
+2. Insert both the Ubuntu live USB and the separate FAT32 SAS3Flash utility USB.
+3. Power on and repeatedly tap `F11` for the MSI boot menu. If it does not appear, press
+   `Delete`, open UEFI setup, and select the Ubuntu USB through Boot Override.
+4. Select the entry beginning **UEFI:** for the Ubuntu USB.
+5. Choose the language and **Try Ubuntu**. Do not choose **Install Ubuntu** or alter a
+   NAS disk partition.
+6. When the desktop appears, press `Ctrl+Alt+T`. The new window is the Ubuntu live
+   terminal and normally shows a prompt containing `ubuntu@ubuntu`.
+7. Open **Files**, click the FAT32 utility USB, and note its mounted folder. In Terminal,
+   type `cd ` with a trailing space, drag that folder into Terminal, and press Enter.
+
+Confirm the utility is in the current directory, then make only that copied Linux file
+executable. This changes the USB file permission; it does not flash the HBA:
 
 ```console
-sudo sas3flash -listall
+pwd
+ls -l
+chmod u+x ./sas3flash
 ```
 
-If the command is named `sas3flash.efi` in a UEFI shell, run:
+Run only the two read-only inventory commands:
 
 ```console
-sas3flash.efi -listall
+sudo ./sas3flash -listall
+sudo ./sas3flash -c 0 -list
 ```
 
-Then inspect controller zero:
+Expected: one SAS3008/9300-8i controller, Firmware Product ID or mode indicating `IT`,
+firmware version beginning `16.00`, and a unique SAS address that is neither all zeroes
+nor all `f` characters.
 
-```console
-sudo sas3flash -c 0 -list
-```
+The UEFI alternative is only for a Linux-utility compatibility failure. It is not a
+menu built into the HBA. Use a trusted x64 UEFI Shell USB plus the Broadcom-supplied
+`sas3flash.efi`, boot it from the MSI `F11` menu, select the FAT32 filesystem such as
+`fs0:`, and run only `sas3flash.efi -listall` and `sas3flash.efi -c 0 -list`.
 
-Expected: SAS3008/9300-8i identity, a nonzero unique SAS address, P16 firmware, and IT
-mode. Do not flash anything simply because another version exists. Stop if the card is
-IR mode, has no SAS address, or does not identify as the purchased controller.
+Never type a SAS3Flash command containing `-f`, `-b`, `-e`, `-o`, `download`, or
+`reset`. Do not flash because a different package exists. Stop if the card is IR, has
+no valid SAS address, identifies incorrectly, or the utility reports incompatibility.
 
 ### Step 2.4 — map and test every HDD
 
@@ -339,8 +364,10 @@ the build.
 **Where:** TrueNAS console and UI
 
 Use the console network menu to assign the management address recorded in
-`config/commissioning.yaml`, or make a matching DHCP reservation in the router. From the
-Mac, reload the commissioning variables if necessary:
+`config/commissioning.yaml`. In the Firewalla app, open the NAS under **Devices**, tap
+its address under **Information**, choose **Reserved**, and enter that same management
+address. The reservation takes effect after lease renewal or reboot. From the Mac,
+reload the commissioning variables if necessary:
 
 ```console
 cd "/Users/sridharb/Documents/Personal Encrypted NAS"
@@ -371,6 +398,9 @@ named administrator from Phase 0, set a unique password, enable MFA, set hostnam
 
 Go to **Network > Interfaces**, edit the physical LAN interface, and add the service IP
 as an alias using the recorded prefix length. Do not replace the management address.
+In **Firewalla > Network Manager > LAN > Edit**, confirm the service IP is inside the
+LAN subnet, outside the dynamic DHCP allocation range, and not used by another device.
+Do not create a second reservation for the same NAS NIC.
 Apply and test changes from the Mac:
 
 ```console
@@ -587,8 +617,8 @@ repository password.
 **Where:** TRUENAS UI
 
 Edit the named administrator and temporarily enable SSH/Shell access using an SSH key.
-Start the SSH service, bind it only to the management interface, and do not expose it on
-the router. Disable this access after commissioning.
+Start the SSH service, bind it only to the management interface, and do not create a
+Firewalla port forward or Internet allow rule. Disable this access after commissioning.
 
 ### Step 8.2 — copy the repository
 
@@ -1066,10 +1096,22 @@ reports RUNNING; TrueNAS owns the Custom App.
 
 ### Step 13.1 — configure DNS views
 
-**Where:** router/local DNS UI
+**Where:** FIREWALLA MOBILE APP
 
-Create a conditional forward or delegation for only `nas.cloudpathz.com` to the service
-IP. Do not forward all DNS to the NAS unless separately designed.
+1. From the Firewalla box screen tap **Services > Custom DNS Rules > Add Custom DNS
+   Rule**.
+2. Enter `nas.cloudpathz.com` as the domain and the NAS service IP as the address, then
+   save. Firewalla normally applies a parent-domain rule to its subdomains.
+3. Confirm LAN clients receive Firewalla as their DNS server through LAN DHCP. Do not
+   configure a public resolver directly on the test client.
+4. Test all three names. If the installed Firewalla release does not apply the parent
+   rule, add explicit Custom DNS Rules for `cloud.nas.cloudpathz.com`,
+   `photos.nas.cloudpathz.com`, and `ops.nas.cloudpathz.com`, each pointing to the
+   service IP.
+
+Do not use Firewalla SSH or an unsupported `dnsmasq_local` customization. The supported
+Custom DNS Rules UI replaces the generic conditional-forward instruction. Tailnet
+clients still use the Tailscale restricted nameserver and NAS tailnet CoreDNS listener.
 
 **Where:** TAILSCALE DNS UI
 
@@ -1118,8 +1160,13 @@ dig A cloud.nas.cloudpathz.com @1.1.1.1
 dig AAAA cloud.nas.cloudpathz.com @1.1.1.1
 ```
 
-Expected: no routable address. Confirm the FiOS router has no forwarding rules for 53,
-80, or 443 and UPnP has not created one.
+Expected: no routable address. In Firewalla open **Network > NAT Settings > Port
+Forwarding**. Confirm no manual or UPnP-created mapping points to either NAS address on
+ports 53, 80, or 443. Disable UPnP for the NAS LAN unless another documented device
+requires it; if it must remain enabled, restrict it to only the required network and
+continue verifying that the NAS has no mapping. Preserve Firewalla's default ingress
+firewall rule—never pause or delete it. Tailscale needs outbound connectivity only and
+requires no Firewalla port forward or inbound allow rule.
 
 **PASS gate 13:** LAN and tailnet return their respective private addresses; all three
 staging endpoints respond; public DNS and WAN expose nothing.
@@ -1302,7 +1349,7 @@ final configuration export, and access-removal checks all pass.
 - [ ] Snapshot and encrypted offsite restore tests passed.
 - [ ] UPS event, alert, and shutdown policy were tested.
 - [ ] LAN split DNS returns service IP; tailnet split DNS returns Tailscale IP.
-- [ ] Public DNS returns no NAS address; router has no forwarding/UPnP exposure.
+- [ ] Public DNS returns no NAS address; Firewalla has no NAS port mapping, DMZ, or UPnP exposure.
 - [ ] Production TLS passes for all three hostnames without bypasses.
 - [ ] Nextcloud, Immich, and Operations Manager passed functional/MFA tests.
 - [ ] Reboot test passed and all services returned automatically.

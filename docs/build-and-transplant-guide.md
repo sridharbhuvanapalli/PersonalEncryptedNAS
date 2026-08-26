@@ -36,7 +36,7 @@ Do not attach any future ZFS data disk during initial firmware or TrueNAS instal
 5. Vacuum or blow dust outside; do not spin fans at extreme speed with compressed air.
 6. Verify that ATX standoffs correspond exactly to the MSI board holes. Remove every
    unused standoff beneath the board.
-7. Confirm the 150 mm-long SL-1000G fits within the N5's 170–240 mm PSU allowance and
+7. Confirm the 140 mm-long Century II fits within the N5's 170–240 mm PSU allowance and
    that the existing CPU cooler is no taller than the N5's 160 mm limit.
 8. Route and label the eight backplane data cables and all required backplane power
    harnesses before installing the PSU; access becomes restricted after assembly.
@@ -62,9 +62,9 @@ Do not attach any future ZFS data disk during initial firmware or TrueNAS instal
 3. Tighten screws in a loose cross pattern, then make them snug—not over-tight.
 4. Apply cooler-manufacturer-specified thermal paste and reinstall the LGA1700 cooler.
 5. Connect the 24-pin ATX and both CPU EPS connectors required by the board/cooler load.
-6. Install the acquired ASRock SL-1000G using the N5 PSU bracket and chassis-specified
+6. Install the acquired Montech Century II 1050W using the N5 PSU bracket and chassis-specified
    airflow orientation.
-7. Use only the original cables supplied with this exact PSU. Connect every power input
+7. Use only the original Montech cables supplied with this exact PSU. Connect every power input
    required by each N5 backplane according to its PCB markings/manual; never substitute
    modular cables from another PSU.
 8. Install the Samsung PM830 128 GB and Inland 512 GB SATA SSDs in separate labeled
@@ -109,10 +109,13 @@ SFF-8087, reverse-breakout, or SFF-8482 drive-end cable for this connection.
    assuming a single error is harmless.
 3. Run a CPU load test from temporary boot media and verify cooler mounting and fan
    response. Do not overclock.
-4. Verify that the HBA is a genuine LSI SAS 9300-8i with SAS3008 controller, reports
-   Product ID/firmware mode `IT`, and runs the approved P16 firmware. It must expose
-   individual disks, not RAID virtual disks. Record `sas3flash -listall` and
-   `sas3flash -list` output, including firmware version and a unique nonzero SAS address.
+4. Verify that the HBA is a genuine LSI SAS 9300-8i with SAS3008 controller and exposes
+   individual disks, not RAID virtual disks. Follow Phase 2 of the production runbook:
+   boot the Ubuntu USB, choose **Try Ubuntu**, open Terminal with `Ctrl+Alt+T`, mount the
+   FAT32 utility USB containing Broadcom SAS3Flash, and run `sudo ./sas3flash -listall`
+   followed by `sudo ./sas3flash -c 0 -list`. Record IT firmware, P16 (`16.00.x.x`),
+   and a unique nonzero SAS address. Do not run any firmware, BIOS, erase, reset, or
+   download command.
 5. In an environment that provides `lspci`, record `lspci -nn` and `lspci -vv` evidence.
    In the preferred CPU-connected slot, `LnkSta` should report PCIe Gen3 (8 GT/s) at x8.
 6. Test both SFF-8643 ports independently with a known-good SAS disk during the seller's
@@ -126,8 +129,11 @@ SFF-8087, reverse-breakout, or SFF-8482 drive-end cable for this connection.
    twice. Because it is an older reused device, replace it if SMART/health data,
    self-tests, error logs, or secure erase behavior are questionable.
 4. Create a named administrator, enable MFA, and do not expose the UI on the WAN.
-5. Give TrueNAS a reserved management address, for example `192.168.1.10`.
-6. Reserve a separate service address, for example `192.168.1.20`, for Caddy and LAN DNS.
+5. In the Firewalla app, open the NAS device, tap its address under **Information**,
+   choose **Reserved**, and assign the management address, for example `192.168.1.10`.
+6. Choose a service address, for example `192.168.1.20`, in the same LAN but outside
+   Firewalla's dynamic DHCP range. Add it as a TrueNAS interface alias; do not create a
+   second reservation for the same NIC.
 7. Verify the Inland TN320 reports 1 TB and passes health checks. Create `apps` from only
    this NVMe as the initial single-device Apps pool. Do not combine it with the smaller
    SATA SSD.

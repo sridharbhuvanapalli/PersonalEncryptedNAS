@@ -28,7 +28,8 @@ only copy of family data, perform and record:
 - UPS communication, low-battery shutdown, and clean restart;
 - private HTTPS trust and renewal on every client type;
 - LAN access during ISP outage and remote Tailscale ACL checks;
-- proof that router/public scans cannot reach services;
+- proof that Firewalla's default ingress firewall is active, NAT/UPnP has no mapping to
+  either NAS address, and public scans cannot reach services;
 - one application update and supported rollback;
 - archive-pool rehearsal with a changed-inventory rejection;
 - proof that removing either pool from a mock/recovery exercise does not invalidate the
