@@ -8,10 +8,11 @@ forwarding, UPnP, or Tailscale Funnel.
 
 Follow these runbooks in order:
 
-1. [Tailscale deployment](tailscale-deployment.md)
-2. [Cloudflare migration](cloudflare-migration.md)
-3. [Technical implementation](technical-implementation.md)
-4. [Operations Manager SOP](operations-manager-sop.md)
+1. [Production installation and commissioning](production-installation-runbook.md)
+2. [Tailscale deployment](tailscale-deployment.md)
+3. [Cloudflare migration](cloudflare-migration.md)
+4. [Technical implementation](technical-implementation.md)
+5. [Operations Manager SOP](operations-manager-sop.md)
 
 ## Configure and validate
 
@@ -40,6 +41,21 @@ deletes one random TXT record. Create and apply a fresh hosting plan after any c
 Apply writes one versioned revision containing Caddy, both CoreDNS views, the private DNS
 manifest, deployment environment, and rollback metadata; it does not restart services.
 
-Deploy CoreDNS before Caddy, test Let's Encrypt staging, and then generate a new
-production revision. Use `hosting-status`, `hosting-renewal-check`, and the exact
-`ROLL BACK PRIVATE HOSTING` confirmation for rollback.
+Preview the active revision and print its revision-specific confirmation:
+
+```console
+pnasctl --config config/pnas.yaml --state-dir /mnt/app-recovery/hosting-revisions/pnas-state \
+  --target truenas-api \
+  --project-root /mnt/apps/pnas/repo \
+  --api-key-file /mnt/apps/secrets/truenas-deployer-api-token
+```
+
+Then rerun with `--execute`, `--api-key-file`, and the exact printed revision-specific
+confirmation. The command renders all five service projects into one `pnas-services`
+Custom App, submits it through the supported TrueNAS API, waits for the API job, and
+requires the final state to be `RUNNING`. It parses only allowlisted environment keys
+and never evaluates `deployment.env` as shell code. Test Let's Encrypt staging before
+generating and deploying a fresh production revision. Use `hosting-status`,
+`hosting-renewal-check`, and the exact
+`ROLL BACK PRIVATE HOSTING` confirmation for rollback; after changing the pointer,
+preview and deploy the newly active revision with a newly issued short-lived key.

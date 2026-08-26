@@ -5,7 +5,7 @@
 **Status:** Accepted, 2026-08-06.
 
 Use the latest maintenance release recommended by the official TrueNAS Software
-Status page (25.10.4 when revalidated on 2026-08-12). Do not deploy beta releases
+Status page (25.10.6 when revalidated on 2026-08-26). Do not deploy beta releases
 for family data.
 
 TrueNAS was chosen because it provides native OpenZFS and RAIDZ2 administration,

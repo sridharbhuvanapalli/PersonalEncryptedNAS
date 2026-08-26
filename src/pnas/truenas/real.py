@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import ssl
+import time
 import uuid
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 import websockets
+from websockets.asyncio.client import ClientConnection
 
 from pnas.models import HardwareInventory
 from pnas.truenas.base import require_supported_api
@@ -50,43 +53,68 @@ class RealTrueNASAdapter:
             )
         return self.credential_file.read_text(encoding="utf-8").strip()
 
+    async def _login(self, ws: ClientConnection) -> None:
+        login = await self._request(
+            ws,
+            "auth.login_ex",
+            [
+                {
+                    "mechanism": "API_KEY_PLAIN",
+                    "username": self.username,
+                    "api_key": self._credential(),
+                }
+            ],
+        )
+        if not isinstance(login, dict) or login.get("response_type") != "SUCCESS":
+            raise TrueNASRPCError("TrueNAS authentication failed")
+
+    async def _request(self, ws: ClientConnection, method: str, params: list[Any]) -> Any:
+        request_id = str(uuid.uuid4())
+        await ws.send(
+            json.dumps({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params})
+        )
+        while True:
+            response = json.loads(await ws.recv())
+            if response.get("id") != request_id:
+                continue
+            if "error" in response:
+                raise TrueNASRPCError(f"TrueNAS method failed: {method}")
+            return response.get("result")
+
     async def _exchange(self, method: str, params: list[Any]) -> Any:
         async with websockets.connect(
             self.uri, ssl=self.ssl_context, max_size=16 * 1024 * 1024
         ) as ws:
-            login_id = str(uuid.uuid4())
-            await ws.send(
-                json.dumps(
-                    {
-                        "jsonrpc": "2.0",
-                        "id": login_id,
-                        "method": "auth.login_ex",
-                        "params": [
-                            {
-                                "mechanism": "API_KEY_PLAIN",
-                                "username": self.username,
-                                "api_key": self._credential(),
-                            }
-                        ],
-                    }
-                )
-            )
-            login = json.loads(await ws.recv())
-            if login.get("error") or login.get("result", {}).get("response_type") != "SUCCESS":
-                raise TrueNASRPCError("TrueNAS authentication failed")
-            request_id = str(uuid.uuid4())
-            await ws.send(
-                json.dumps({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params})
-            )
-            while True:
-                response = json.loads(await ws.recv())
-                if response.get("id") != request_id:
-                    continue
-                if "error" in response:
-                    raise TrueNASRPCError(
-                        f"TrueNAS call failed: {response['error'].get('message', 'error')}"
-                    )
-                return response.get("result")
+            await self._login(ws)
+            return await self._request(ws, method, params)
+
+    async def call_job(
+        self,
+        method: str,
+        params: list[Any],
+        *,
+        timeout_seconds: int = 900,
+        poll_seconds: float = 1.0,
+    ) -> Any:
+        """Call and monitor a TrueNAS job in one authenticated API session."""
+        async with websockets.connect(
+            self.uri, ssl=self.ssl_context, max_size=16 * 1024 * 1024
+        ) as ws:
+            await self._login(ws)
+            job_id = await self._request(ws, method, params)
+            if not isinstance(job_id, int):
+                raise TrueNASRPCError(f"TrueNAS method did not return a job ID: {method}")
+            deadline = time.monotonic() + timeout_seconds
+            while time.monotonic() < deadline:
+                jobs = await self._request(ws, "core.get_jobs", [[["id", "=", job_id]]])
+                if isinstance(jobs, list) and jobs and isinstance(jobs[0], dict):
+                    state = jobs[0].get("state")
+                    if state == "SUCCESS":
+                        return jobs[0].get("result")
+                    if state in {"FAILED", "ABORTED"}:
+                        raise TrueNASRPCError(f"TrueNAS job ended in state {state}: {method}")
+                await asyncio.sleep(poll_seconds)
+            raise TrueNASRPCError(f"TrueNAS job timed out: {method}")
 
     async def api_version(self) -> str:
         version = str(await self.call("system.version_short"))

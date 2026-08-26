@@ -2,6 +2,8 @@ import shutil
 import stat
 from pathlib import Path
 
+import yaml
+from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
 from pnas.cli.control import app
@@ -35,7 +37,9 @@ def test_manager_secret_initialization_is_exclusive_and_private(tmp_path: Path) 
     assert "refuses to overwrite" in refused.output
 
 
-def test_manual_hosting_cli_configure_plan_and_apply(tmp_path: Path) -> None:
+def test_manual_hosting_cli_configure_plan_apply_and_deploy_guard(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
     config = tmp_path / "pnas.yaml"
     state = tmp_path / "state"
     shutil.copyfile("config/pnas.example.yaml", config)
@@ -93,3 +97,76 @@ def test_manual_hosting_cli_configure_plan_and_apply(tmp_path: Path) -> None:
     assert "DNS_PROVIDER_CREDENTIAL_FILE=/dev/null" in (revision / "deployment.env").read_text(
         encoding="utf-8"
     )
+    expected = f"DEPLOY PRIVATE HOSTING REVISION {revision.name}"
+    env_root = tmp_path / "unified-env"
+    for name in ("nextcloud", "immich", "manager", "proxy"):
+        destination = env_root / name
+        destination.mkdir(parents=True)
+        shutil.copyfile(Path("compose") / name / "env.example", destination / ".env")
+    api_preview = runner.invoke(
+        app,
+        [
+            *common,
+            "hosting-deploy",
+            "--project-root",
+            str(Path.cwd()),
+            "--env-dir",
+            str(env_root),
+        ],
+    )
+    assert api_preview.exit_code == 0, api_preview.output
+    assert '"target": "truenas-api"' in api_preview.output
+    assert (revision / "truenas-custom-app.yaml").is_file()
+
+    refused = runner.invoke(
+        app,
+        [
+            *common,
+            "hosting-deploy",
+            "--execute",
+            "--confirmation",
+            "yes",
+            "--project-root",
+            str(Path.cwd()),
+            "--env-dir",
+            str(env_root),
+        ],
+    )
+    assert refused.exit_code != 0
+    assert "confirmation must exactly equal" in refused.output
+
+    raw_config = yaml.safe_load(config.read_text(encoding="utf-8"))
+    raw_config["truenas"]["adapter"] = "real"
+    config.write_text(yaml.safe_dump(raw_config, sort_keys=False), encoding="utf-8")
+    api_key = tmp_path / "deployer-api-key"
+    api_key.write_text("test-only-api-key", encoding="utf-8")
+    api_key.chmod(0o600)
+
+    async def fake_api_deploy(adapter: object, compose_yaml: str) -> dict[str, str]:
+        assert "pnas-manager:" in compose_yaml
+        return {
+            "application": "pnas-services",
+            "action": "created",
+            "state": "RUNNING",
+            "api_version": "25.10",
+        }
+
+    monkeypatch.setattr("pnas.cli.control.deploy_custom_app", fake_api_deploy)
+    api_deployed = runner.invoke(
+        app,
+        [
+            *common,
+            "hosting-deploy",
+            "--execute",
+            "--confirmation",
+            expected,
+            "--project-root",
+            str(Path.cwd()),
+            "--env-dir",
+            str(env_root),
+            "--api-key-file",
+            str(api_key),
+        ],
+    )
+    assert api_deployed.exit_code == 0, api_deployed.output
+    assert '"state": "RUNNING"' in api_deployed.output

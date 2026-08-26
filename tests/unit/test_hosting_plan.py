@@ -87,6 +87,7 @@ def test_revision_history_supports_rollback(tmp_path: Path) -> None:
 
 def test_caddy_build_plugins_are_immutably_pinned() -> None:
     dockerfile = Path("compose/proxy/Dockerfile").read_text(encoding="utf-8")
+    assert "ARG CADDY_VERSION=2.11.4" in dockerfile
     assert "caddy-dns/cloudflare@a8737d095ad5a48ca031cea6ab704057dbc2d250" in dockerfile
     assert "caddy-dns/rfc2136@e50b9f25dd68882c76758446195aca0507be3c05" in dockerfile
     assert ":latest" not in dockerfile

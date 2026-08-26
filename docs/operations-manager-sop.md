@@ -38,14 +38,20 @@ safety gates remain required for every supported change.
    - `PNAS_MANAGER_ALLOWED_NETWORKS=172.31.0.0/28`;
    - `PNAS_MANAGER_TRUSTED_PROXY_NETWORKS=172.31.0.0/28`;
    - `PNAS_MANAGER_HEALTH_MODE=live`.
-7. Confirm `pnas_management` was created with exactly the documented subnet and contains
-   only Caddy and the manager.
-8. Validate and start:
+7. The production renderer creates `pnas_management` with exactly the documented subnet
+   and connects only Caddy and the manager.
+8. Validate the complete production application in preview mode:
 
    ```console
-   docker compose --project-directory compose/manager -f compose/manager/compose.yaml config
-   docker compose --project-directory compose/manager -f compose/manager/compose.yaml up -d --build
+   pnasctl --config config/pnas.yaml \
+     --state-dir /mnt/app-recovery/hosting-revisions/pnas-state \
+     hosting-deploy --target truenas-api \
+     --project-root /mnt/apps/pnas/repo \
+     --api-key-file /mnt/apps/secrets/truenas-deployer-api-token
    ```
+
+   Deploy only through the confirmed command in the production runbook. Do not start
+   this Compose project directly on the TrueNAS shell.
 
 9. Open `https://ops.nas.cloudpathz.com` first from LAN and then from an approved remote
    Tailscale client. Direct container access must fail because the manager publishes no
@@ -140,18 +146,14 @@ the intent was recorded; `executed` remains false.
 
 1. Create the action plan in the manager.
 2. Read the corresponding runbook and current system evidence.
-3. Use the CLI planning command on a trusted management workstation.
-4. Review the plan ID, expiry, inventory fingerprint, serials, preconditions, and exact
-   confirmation phrase.
+3. Use the corresponding production runbook and supported TrueNAS UI/API workflow from
+   a trusted management workstation.
+4. Review the affected identities, preconditions, recovery evidence, and exact scope.
 5. Apply only during the approved maintenance window.
 6. Verify outcome and record it in the offline operations log.
 
-For the planned phase-2 storage action, use `archive-preflight`, `archive-plan`, and
-`archive-apply`. The reviewed plan must create the independent `archive` pool from the
-four 3 TB Toshiba serials; cancel any plan that adds them to `tank`.
-
-Real destructive pool application remains blocked by this software until live inventory
-normalization and a hardware validation session are complete. Do not bypass that guard.
+The manager records intent only. It does not convert a dashboard action into authority
+to modify storage or applications.
 
 ### Future Apps mirror change
 

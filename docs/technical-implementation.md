@@ -143,12 +143,8 @@ eight-drive and HBA burn-in rather than chassis fan-slot count alone.
    Keep the storage identity constraints intact: `tank` requires four 18 TB SAS 512e
    HC550/WUH721818 drives, and `archive` requires four 3 TB SATA 512e DT01ACA300 drives.
 
-3. Create fixed application networks once:
-
-   ```console
-   docker network create --driver bridge --subnet 172.30.0.0/24 pnas_private
-   docker network create --driver bridge --subnet 172.31.0.0/28 pnas_management
-   ```
+3. Do not create Docker networks from the TrueNAS shell. The production renderer defines
+   the fixed application networks inside one TrueNAS-managed Custom App.
 
 4. Install the supported TrueNAS Tailscale App using
    [tailscale deployment](tailscale-deployment.md).
@@ -175,21 +171,35 @@ eight-drive and HBA burn-in rather than chassis fan-slot count alone.
 6. Perform the explicitly confirmed temporary DNS write test, create the hosting plan,
    review it, and apply it. Use the exact confirmation strings printed by the commands.
 
-7. Load the generated deployment environment and deploy DNS before Caddy:
+7. Preview and execute the approved revision through the guarded deployment command:
 
    ```console
-   set -a
-   . var/hosting/revisions/PLAN_ID/deployment.env
-   . compose/proxy/.env
-   set +a
-   scripts/compose-with-secrets compose/dns config
-   scripts/compose-with-secrets compose/dns up -d
-   scripts/compose-with-secrets compose/proxy config
-   scripts/compose-with-secrets compose/proxy up -d --build
+   pnasctl --config config/pnas.yaml \
+     --state-dir /mnt/app-recovery/hosting-revisions/pnas-state \
+     hosting-deploy --target truenas-api \
+     --project-root /mnt/apps/pnas/repo \
+     --api-key-file /mnt/apps/secrets/truenas-deployer-api-token
+   pnasctl --config config/pnas.yaml \
+     --state-dir /mnt/app-recovery/hosting-revisions/pnas-state \
+     hosting-deploy --target truenas-api --execute \
+     --confirmation 'DEPLOY PRIVATE HOSTING REVISION PLAN_ID' \
+     --project-root /mnt/apps/pnas/repo \
+     --api-username pnas-deployer \
+     --api-key-file /mnt/apps/secrets/truenas-deployer-api-token
    ```
+
+   The preview is read-only. Execution accepts only the active approved/applied revision,
+   parses allowlisted environment keys without shell evaluation, renders all services
+   into one `pnas-services` application, submits it through `app.create` or `app.update`,
+   waits for the TrueNAS job, and requires a final `RUNNING` state. It does not create
+   public service records. Use a short-lived deployment key with `APPS_WRITE`, its read
+   access, and `SYSTEM_GENERAL_READ`, then revoke it after commissioning.
 
 8. Verify staging certificates from a LAN and an external tailnet client. Change the
    certificate environment to production, generate a fresh plan/revision, and redeploy.
+
+The exact end-to-end command sequence and phase acceptance tests are in the
+[production installation and commissioning runbook](production-installation-runbook.md).
 
 ## Operations Manager design
 

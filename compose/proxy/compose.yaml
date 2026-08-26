@@ -6,8 +6,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        CADDY_VERSION: 2.11.3
-    image: localhost/pnas-caddy:2.11.3-dns
+        CADDY_VERSION: 2.11.4
+    image: localhost/pnas-caddy:2.11.4-dns
     restart: unless-stopped
     ports:
       - ${PNAS_SERVICE_LAN_BIND_IP:?private service LAN IP}:443:443/tcp
@@ -15,14 +15,14 @@ services:
       - ${PNAS_TAILSCALE_BIND_IP:?Tailscale IP}:443:443/tcp
       - ${PNAS_TAILSCALE_BIND_IP:?Tailscale IP}:443:443/udp
     volumes:
-      - ${CADDYFILE_PATH:-./Caddyfile}:/etc/caddy/Caddyfile:ro
+      - ${CADDYFILE_PATH:?generated Caddyfile required}:/etc/caddy/Caddyfile:ro
       - ${CADDY_DATA_PATH:?set CADDY_DATA_PATH}:/data
       - ${CADDY_CONFIG_PATH:?set CADDY_CONFIG_PATH}:/config
-      - ${DNS_PROVIDER_CREDENTIAL_FILE:-/dev/null}:/run/secrets/dns_provider_credential:ro
+      - ${DNS_PROVIDER_CREDENTIAL_FILE:?generated credential path required}:/run/secrets/dns_provider_credential:ro
     environment:
       PNAS_SERVICE_LAN_BIND_IP: ${PNAS_SERVICE_LAN_BIND_IP:?private service LAN IP}
       PNAS_TAILSCALE_BIND_IP: ${PNAS_TAILSCALE_BIND_IP:?Tailscale IP}
-      PNAS_DNS_PROVIDER: ${PNAS_DNS_PROVIDER:-manual}
+      PNAS_DNS_PROVIDER: ${PNAS_DNS_PROVIDER:?generated DNS provider required}
       PNAS_DNS_CREDENTIAL_FILE: /run/secrets/dns_provider_credential
     networks: [pnas_private, pnas_management]
     security_opt: [no-new-privileges:true]

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from pnas.backups.runner import require_secret_file
+from pnas.security import require_secret_file
 
 
 def _b64encode(value: bytes) -> str:

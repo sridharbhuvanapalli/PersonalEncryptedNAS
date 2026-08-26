@@ -9,13 +9,14 @@ services:
       DB_HOSTNAME: immich-db
       DB_USERNAME: immich
       DB_DATABASE_NAME: immich
-      DB_PASSWORD: ${IMMICH_DB_PASSWORD:?loaded from secret file by deploy wrapper}
+      DB_PASSWORD_FILE: /run/secrets/immich_db_password
       REDIS_HOSTNAME: immich-valkey
       IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
       IMMICH_HELMET_FILE: "true"
     volumes:
       - ${IMMICH_LIBRARY_PATH:?set IMMICH_LIBRARY_PATH}:/data
       - /etc/localtime:/etc/localtime:ro
+    secrets: [immich_db_password]
     networks: [backend, pnas_private]
     depends_on:
       immich-db: {condition: service_healthy}
@@ -48,10 +49,11 @@ services:
     environment:
       POSTGRES_USER: immich
       POSTGRES_DB: immich
-      POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD:?loaded from secret file by deploy wrapper}
+      POSTGRES_PASSWORD_FILE: /run/secrets/immich_db_password
       POSTGRES_INITDB_ARGS: --data-checksums
     volumes:
       - ${IMMICH_DB_PATH:?set IMMICH_DB_PATH}:/var/lib/postgresql/data
+    secrets: [immich_db_password]
     networks: [backend]
     shm_size: 128mb
     healthcheck:
@@ -65,3 +67,6 @@ networks:
   backend: {internal: true}
   pnas_private: {external: true, name: pnas_private}
 
+secrets:
+  immich_db_password:
+    file: "${IMMICH_DB_PASSWORD_FILE:?set secret file}"

@@ -9,15 +9,15 @@ For each TrueNAS or application update:
 3. Create and validate both PostgreSQL dumps.
 4. Create named pre-update ZFS snapshots.
 5. Confirm offsite-backup freshness and recent restore success.
-6. Generate a machine-readable update plan and review rollback limits.
-7. Approve exactly one application project.
-8. Pull only the pinned target images and apply that project.
+6. Generate a reviewed hosting revision and inspect the complete rendered Custom App.
+7. Approve a change to exactly the intended component's pinned image or build input;
+   reject unrelated changes in the unified application.
+8. Deploy the reviewed `pnas-services` revision through the TrueNAS API.
 9. Run container health, login, upload/download, and application-specific checks.
 10. Record success or execute the reviewed rollback.
 
-Rollback can require the previous Compose file, database dump, and pre-update snapshot.
+Rollback can require the previous rendered Custom App, database dump, and pre-update snapshot.
 Never start an older application against a database already migrated by a newer
 version unless that rollback path is explicitly supported. TrueNAS updates use only
 the supported UI/update process after saving configuration and reviewing the Software
 Status page.
-

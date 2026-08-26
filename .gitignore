@@ -14,3 +14,7 @@ build/
 var/
 secrets/
 recovery-bundles/
+config/commissioning.yaml
+config/pnas.yaml
+config/pnas-rehearsal.yaml
+.commissioning.env

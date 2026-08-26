@@ -8,8 +8,8 @@ from typing import Any, Protocol
 
 import httpx
 
-from pnas.backups.runner import require_secret_file
 from pnas.config import HostingDNSConfig
+from pnas.security import require_secret_file
 
 
 class ProviderError(RuntimeError):

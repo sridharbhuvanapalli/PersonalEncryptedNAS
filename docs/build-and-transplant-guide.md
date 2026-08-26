@@ -210,10 +210,11 @@ a separately reviewed plan matching the installed TrueNAS release.
 
 ## 11. Commission applications and remote access
 
-1. Create fixed Docker networks:
-   `pnas_private` for applications and `pnas_management` with a documented small subnet
-   for Caddy-to-manager traffic.
-2. Deploy Nextcloud, Immich, Caddy, CoreDNS, and the manager from reviewed revisions.
+1. Generate the reviewed private-hosting revision. The renderer defines `pnas_private`
+   and `pnas_management` inside the unified application; do not create them from the
+   TrueNAS shell.
+2. Deploy Nextcloud, Immich, Caddy, CoreDNS, and the manager as the unified
+   `pnas-services` Custom App through the supported TrueNAS API.
 3. Install the supported TrueNAS Tailscale App with Host Network enabled and Userspace
    disabled.
 4. Apply the tailnet grants only after replacing placeholder identities.

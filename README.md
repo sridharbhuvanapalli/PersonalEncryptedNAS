@@ -32,8 +32,16 @@ make check
 Hardware is not required for mock development. Real destructive operations are
 disabled unless explicitly configured and approved through a current plan.
 
-See [architecture](docs/architecture.md), [hardware checklist](docs/hardware-checklist.md),
+For a completed transplant, start with the authoritative
+[production installation and commissioning runbook](docs/production-installation-runbook.md).
+It identifies every download, manual TrueNAS operation, automation command, phase gate,
+private-domain deployment step, and final acceptance test in execution order.
+
+See also [architecture](docs/architecture.md), [hardware checklist](docs/hardware-checklist.md),
 [hardware BOM](docs/hardware-bom.md), [build guide](docs/build-and-transplant-guide.md),
 [technical implementation](docs/technical-implementation.md),
 [private HTTPS hosting](docs/private-hosting.md),
-[Operations Manager SOP](docs/operations-manager-sop.md), and [security policy](SECURITY.md).
+[Operations Manager SOP](docs/operations-manager-sop.md),
+[backup](docs/backup.md), [recovery](docs/recovery.md),
+[monitoring](docs/monitoring.md), [updates](docs/updates.md),
+[threat model](docs/threat-model.md), and [security policy](SECURITY.md).

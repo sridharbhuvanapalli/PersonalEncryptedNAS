@@ -33,8 +33,8 @@
    future restarts.
 7. Restart the app once and confirm no duplicate machine appears.
 
-The repository Compose project under `compose/tailscale` is a kernel-mode lab/recovery
-fallback, not the production path. It intentionally contains no auth key.
+The supported TrueNAS Tailscale App is the only deployment path maintained by this
+repository.
 
 ## Split DNS
 
@@ -64,7 +64,10 @@ curl --fail --head https://cloud.nas.cloudpathz.com/status.php
 curl --fail --head https://photos.nas.cloudpathz.com
 ```
 
-Capture `tailscale status --json` and run:
+Open the Tailscale application's workload shell in TrueNAS and capture
+`tailscale status --json` there. The JSON must come from the NAS because its `Self`
+object identifies the machine being diagnosed; output from the remote laptop describes
+the laptop instead. Save the NAS output to `tailscale-status.json`, then run:
 
 ```console
 pnasctl --config config/pnas.yaml tailscale-doctor --status-file tailscale-status.json

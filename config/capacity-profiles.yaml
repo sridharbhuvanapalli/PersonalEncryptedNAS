@@ -1,3 +1,0 @@
-profiles:
-  main-hc550-18tb: {pool: tank, drive_count: 4, drive_capacity_tb: 18, vdev_count: 1, layout: raidz2}
-  archive-dt01aca300-3tb: {pool: archive, drive_count: 4, drive_capacity_tb: 3, vdev_count: 1, layout: raidz2}

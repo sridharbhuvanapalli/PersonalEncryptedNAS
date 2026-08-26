@@ -1,5 +1,9 @@
 # Hardware deployment validation
 
+Execute and record these gates through the authoritative
+[production installation and commissioning runbook](production-installation-runbook.md).
+This checklist remains the compact production-readiness summary.
+
 Software and mock validation do not make the NAS production-ready. Before storing the
 only copy of family data, perform and record:
 

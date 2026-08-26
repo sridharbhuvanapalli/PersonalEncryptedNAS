@@ -1,9 +1,14 @@
 # TrueNAS installation
 
+Use this summary only with the authoritative
+[production installation and commissioning runbook](production-installation-runbook.md),
+which includes downloads, checksum verification, device-identity gates, tests, evidence,
+pool creation, applications, domain automation, and commissioning.
+
 `pnas-install` does not install or modify the TrueNAS base OS. Use the official
 TrueNAS Community Edition installer and choose the latest maintenance release
-recommended for general users by the Software Status page (25.10.4 when revalidated on
-2026-08-12). Check that page again immediately before downloading the installer.
+recommended for general users by the Software Status page (25.10.6 when revalidated on
+2026-08-26). Check that page again immediately before downloading the installer.
 
 1. Download the ISO only from TrueNAS and verify the published SHA-256 checksum.
 2. Write it to dedicated installer media and boot the NAS in UEFI mode.
@@ -20,8 +25,10 @@ recommended for general users by the Software Status page (25.10.4 when revalida
     offsite storage. A future ≥1 TB NVMe attaches to the existing TN320 vdev as a mirror
     member; it is not added as a new striped vdev.
 
-Do not install Python packages, services, or arbitrary binaries on the TrueNAS OS.
-Run this project from a trusted workstation or a supported management container.
+Do not install Python packages, services, or arbitrary binaries into the TrueNAS boot
+environment. Run this project from a trusted workstation, a supported management
+container, or a virtual environment stored entirely on the `apps` dataset when the
+installed release provides a compatible runtime.
 
 Source: [TrueNAS installation documentation](https://www.truenas.com/docs/scale/gettingstarted/install/)
 and [TrueNAS Software Status](https://www.truenas.com/docs/softwarestatus/).

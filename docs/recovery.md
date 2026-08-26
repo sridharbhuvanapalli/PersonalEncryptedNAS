@@ -43,7 +43,8 @@ snapshot ID, file, date, and result. Never restore tests over production paths.
    pool and never add the archive vdev to `tank`. Recreate a missing pool only from its
    independent backup; do not format surviving or backup media.
 5. Unlock encrypted roots using verified offline keys.
-6. Recreate application datasets and ACLs; deploy pinned Compose projects stopped.
+6. Recreate application datasets and ACLs; render and deploy the pinned unified
+   `pnas-services` Custom App through the supported TrueNAS API.
 7. Restore configuration, databases, then family originals from Restic.
 8. Validate database integrity, permissions, file counts/hashes, and application health.
 9. Re-enroll Tailscale, rotate credentials, issue trusted private certificates, and

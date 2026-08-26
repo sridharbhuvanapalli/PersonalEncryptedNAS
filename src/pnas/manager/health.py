@@ -168,7 +168,7 @@ def mock_health_snapshot() -> dict[str, Any]:
         "read_only": True,
         "stale": False,
         "storage": {
-            "truenas_version": "25.10.4 (planned target)",
+            "truenas_version": "25.10.6 (planned target)",
             "all_pools_healthy": True,
             "pools": [
                 {
