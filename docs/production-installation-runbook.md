@@ -173,9 +173,9 @@ log. If it is false, read the failed check's `detail`, correct that item, and re
 
 **Where:** MAC plus web browser
 
-As of 2026-08-26, TrueNAS 25.10.6 is the current 25.10 maintenance release. Do not use a
-TrueNAS 26 beta, RC, nightly, or experimental image for this NAS. Immediately before
-downloading, verify the recommendation on
+This installation uses TrueNAS Community Edition 25.10.7. Do not use a TrueNAS 26 beta,
+RC, nightly, or experimental image for this NAS. Immediately before downloading, verify
+the recommended production release on
 <https://www.truenas.com/docs/softwarestatus/>.
 
 Download from <https://www.truenas.com/download-truenas-community-edition/> into a new
@@ -484,8 +484,29 @@ All actions in this phase use the TRUENAS UI. Do not use shell `zpool` commands.
 3. Select only the Inland TN320 1 TB NVMe by model and serial.
 4. Accept one single-device data vdev for the initial build.
 5. Reject any screen showing another disk or a second top-level vdev.
-6. Create these child datasets: `app-config`, `databases`, `immich-generated`, `pnas`,
-   and `secrets`.
+6. Click **Create** and accept the warning that this initial SSD pool has no redundancy.
+7. Open **Datasets**, select `apps`, and click **Add Dataset**.
+8. Create each of the following as a child of `apps`, one at a time: `app-config`,
+   `databases`, `immich-generated`, `pnas`, and `secrets`.
+9. For each child, select the **Generic** dataset preset. Do not create a zvol and do
+   not select SMB, Multiprotocol, or Apps as the dataset preset.
+10. Leave compression, sync, atime, record size, and quotas inherited unless a later
+    application step explicitly changes one of them.
+
+Expected layout:
+
+```text
+apps
+├── app-config
+├── databases
+├── immich-generated
+├── pnas
+└── secrets
+```
+
+The current TN320 is the only `apps` data vdev. When the future 1 TB NVMe is installed,
+attach it as the second member of this existing vdev to convert the single-device vdev
+to a mirror. Never add it as another top-level striped vdev.
 
 ### Step 5.2 — create `app-recovery`
 
@@ -493,7 +514,19 @@ All actions in this phase use the TRUENAS UI. Do not use shell `zpool` commands.
 
 1. Start a new pool named `app-recovery`.
 2. Select only the Inland 512 GB SATA SSD.
-3. Create `database-dumps`, `app-config-exports`, and `hosting-revisions` datasets.
+3. Accept one single-device data vdev and create the pool.
+4. In **Datasets**, create `database-dumps`, `app-config-exports`, and
+   `hosting-revisions` beneath `app-recovery` using the **Generic** preset.
+5. Leave normal dataset properties inherited.
+
+Expected layout:
+
+```text
+app-recovery
+├── database-dumps
+├── app-config-exports
+└── hosting-revisions
+```
 
 ### Step 5.3 — select the Apps pool
 
@@ -508,8 +541,11 @@ header reports **Apps Service Running**.
 
 These commands create and remove harmless test files below `/mnt`:
 
+The dataset mount points are initially owned by `root`. Use `sudo tee`; a plain shell
+redirection such as `printf ... > /mnt/...` can fail before `sudo` is applied.
+
 ```console
-printf 'apps test\n' > /mnt/apps/pnas/apps-write-test.txt
+printf 'apps test\n' | sudo tee /mnt/apps/pnas/apps-write-test.txt
 ```
 
 ```console
@@ -517,11 +553,12 @@ cat /mnt/apps/pnas/apps-write-test.txt
 ```
 
 ```console
-rm /mnt/apps/pnas/apps-write-test.txt
+sudo rm /mnt/apps/pnas/apps-write-test.txt
 ```
 
 ```console
-printf 'recovery test\n' > /mnt/app-recovery/hosting-revisions/recovery-write-test.txt
+printf 'recovery test\n' | sudo tee \
+  /mnt/app-recovery/hosting-revisions/recovery-write-test.txt
 ```
 
 ```console
@@ -529,7 +566,7 @@ cat /mnt/app-recovery/hosting-revisions/recovery-write-test.txt
 ```
 
 ```console
-rm /mnt/app-recovery/hosting-revisions/recovery-write-test.txt
+sudo rm /mnt/app-recovery/hosting-revisions/recovery-write-test.txt
 ```
 
 **PASS gate 5:** both pools show ONLINE, contain only their intended SSD, complete an
@@ -558,10 +595,78 @@ printf 'MAIN: %s %s %s %s\nARCHIVE: %s %s %s %s\n' \
 3. Select exactly the four recorded 18 TB HC550 SAS/512e serials.
 4. Create one four-wide RAIDZ2 data vdev.
 5. Reject Stripe, Mirror, RAIDZ1, any SSD, any Toshiba, or the wrong disk count.
-6. Create encrypted root datasets `family-files`, `family-photos`, `database-dumps`, and
-   `local-backups`.
-7. Create `family-files/nextcloud-data` and `family-photos/immich-library`.
-8. Export dataset keys and store two encrypted offline copies in separate locations.
+6. Review the topology a second time, create the pool, and wait for `tank` to report
+   **ONLINE**.
+
+Leave the `tank` pool root itself unencrypted. Create independent encrypted child roots
+so a problem with one key does not force all family data to use that same key.
+
+For each name in the following list, perform every numbered action before moving to the
+next name:
+
+```text
+family-files
+family-photos
+database-dumps
+local-backups
+```
+
+1. Go to **Datasets**, select `tank`, and click **Add Dataset**.
+2. Enter the exact dataset name and select the **Generic** preset.
+3. Expand **Advanced Options** and enable **Encryption**.
+4. Select **Key** as the encryption type, not Passphrase.
+5. Leave **Generate Key** selected and use `AES-256-GCM`.
+6. Leave normal storage properties inherited and click **Save**.
+7. Select the new dataset in the tree and inspect its encryption details.
+8. Confirm its Encryption Root is itself, for example `tank/family-files`, and its state
+   is **Unlocked** or **Key loaded: Yes**. Stop if it inherited encryption from another
+   root or encryption is absent.
+
+Create the two application data children after their encrypted parents exist:
+
+1. Select `tank/family-files`, click **Add Dataset**, name it `nextcloud-data`, and use
+   the **Generic** preset.
+2. Leave **Inherit Encryption** selected. Confirm the resulting encryption root is
+   `tank/family-files`.
+3. Select `tank/family-photos`, add `immich-library` using **Generic**, and inherit its
+   parent's encryption.
+4. Confirm its encryption root is `tank/family-photos`.
+
+Expected layout:
+
+```text
+tank
+├── family-files                 encrypted root, independent key
+│   └── nextcloud-data           inherits family-files encryption
+├── family-photos                encrypted root, independent key
+│   └── immich-library           inherits family-photos encryption
+├── database-dumps               encrypted root, independent key
+└── local-backups                encrypted root, independent key
+```
+
+Do not place the only copy of an encryption key on the NAS. Losing a key makes the
+corresponding dataset unrecoverable.
+
+For each of the four encrypted roots:
+
+1. Select the encryption-root dataset in **Datasets**.
+2. Open its encryption actions and choose **Export Key**.
+3. Download the JSON key to the trusted Mac and give it an unambiguous name, for
+   example `tank-family-files-key.json`.
+4. If **Export All Keys** is available on the `tank` encryption widget, also download
+   the consolidated JSON as `tank-all-dataset-keys.json`; it supplements rather than
+   replaces the individually named files.
+5. Copy the files to encrypted offline recovery device 1.
+6. Copy them to encrypted offline recovery device 2 and store it in a different
+   physical location.
+7. Open both copies and confirm that they are readable JSON. Record SHA-256 hashes of
+   each key file in the commissioning log, but never paste the key contents into the
+   log, repository, email, or cloud notes.
+8. Remove any unencrypted convenience copies from the Mac only after both encrypted
+   offline copies have been verified.
+
+The exported TrueNAS configuration with **Password Secret Seed** is also required for
+recovery, but it does not replace these explicit dataset-key exports.
 
 ### Step 6.2 — create `archive`
 
@@ -571,44 +676,559 @@ printf 'MAIN: %s %s %s %s\nARCHIVE: %s %s %s %s\n' \
 2. Name the pool `archive`.
 3. Select exactly the four recorded Toshiba DT01ACA300 SATA/512e serials.
 4. Create one four-wide RAIDZ2 data vdev.
-5. Create encrypted archive datasets appropriate for the family archive.
+5. Review the topology, create the pool, and wait for `archive` to report **ONLINE**.
+6. Leave the `archive` pool root unencrypted.
+7. Create `archived-files` and `archived-photos` as independent encrypted roots by
+   following the same **Generic > Advanced Options > Encryption > Key > Generate Key >
+   AES-256-GCM** process used for the four `tank` roots.
+8. Confirm each dataset is its own Encryption Root and is unlocked.
+9. Export the two individual JSON keys as `archive-archived-files-key.json` and
+   `archive-archived-photos-key.json`, then place verified copies on both encrypted
+   offline recovery devices.
+
+Expected initial layout:
+
+```text
+archive
+├── archived-files               encrypted root, independent key
+└── archived-photos              encrypted root, independent key
+```
+
+Use `archived-files` for old documents, scans, records, and completed projects. Use
+`archived-photos` for historical photos and videos that are no longer part of the
+active Immich library. Create `long-term-backups` as a third independent encrypted root
+only when there is a defined long-retention backup set for it; do not create it merely
+as another copy of live data or as the only recovery copy.
+
+If a future archive destination is to be created by a TrueNAS replication task, do not
+pre-create that specific destination dataset. Configure the replication encryption and
+let the task create its intended destination properties.
 
 ### Step 6.3 — test topology and encryption
 
 **Where:** TRUENAS UI
 
 In the UI, expand each topology and capture screenshots showing serials and vdev layout.
-Run a scrub of each pool and wait for both to finish. With applications still absent,
-perform one controlled lock/unlock test of each encrypted root using the offline key.
+Run a scrub of each pool, one at a time, and wait for each to finish. Key-encrypted
+datasets do not display the manual **Lock** action in TrueNAS 25.10.7, so do not try to
+force a lock through the shell. Instead, confirm all six encryption roots are unlocked,
+each root reports itself as its Encryption Root, every individual JSON key exists on
+both encrypted offline devices, and the copied files open as valid JSON with matching
+recorded SHA-256 hashes. After the later reboot test, confirm all six roots return to the
+expected unlocked state.
 
 **PASS gate 6:** `tank` and `archive` are separate ONLINE four-wide RAIDZ2 pools; scrubs
-finish with zero errors; keys unlock successfully; no serial appears in two pools.
+finish with zero errors; all six key exports have two verified offline copies; every
+encrypted root is unlocked; and no serial appears in two pools.
 
 ## Phase 7 — configure protection before adding family data
 
 ### Step 7.1 — configure and prove every protection layer
 
+This procedure is written for TrueNAS Community Edition 25.10.7. In this version, pool
+scrub schedules are configured from **Storage**, and the graphical SMART-test scheduler
+has been removed. TrueNAS continues automatic drive-health polling, while explicit
+short and long self-tests use Cron Jobs under **System > Advanced Settings**.
+
+Record this initial maintenance calendar in the commissioning log:
+
+| Protection task | Initial schedule |
+|---|---|
+| Weekly SMART short tests | Wednesday, staggered from 20:00 |
+| Four `tank` long tests | Days 1, 4, 7, and 10 at 00:30 |
+| Four `archive` long tests | Days 13, 15, 17, and 19 at 00:30 |
+| `tank` scrub | Day 22 at 00:00 |
+| `archive` scrub | Day 28 at 00:00 |
+| Hourly snapshots | Minute 5 for Nextcloud; minute 15 for Immich |
+| Daily snapshots | 00:35 for Nextcloud; 00:45 for Immich |
+| Weekly snapshots | Sunday 01:35 and 01:45 |
+| Monthly snapshots | Day 1 at 02:35 and 02:45 |
+
+The dates are starting values. Measure the first scrub and first long test from each
+pool. Increase the gaps if the measured duration could overlap another long test or
+scrub. Disable all scheduled scrubs and long tests whenever either pool is degraded,
+resilvering, replacing a disk, or already scanning.
+
+#### Step 7.1.1 — schedule and prove monthly pool scrubs
+
 **Where:** TRUENAS UI
 
-1. Under **Data Protection**, schedule monthly scrubs for `tank` and `archive` on
-   different days.
-2. Schedule weekly SMART short tests and staggered monthly long tests. Do not overlap
-   long tests, scrubs, or resilvers.
-3. Create periodic snapshots for Nextcloud and Immich datasets with frequent active-data
-   retention and daily/weekly/monthly recovery points.
-4. Configure the connected UPS/NUT service and an early clean-shutdown policy.
-5. Configure system email/alert delivery and send a test notification.
-6. Add the Backblaze B2 credential in **Credentials > Backup Credentials**.
-7. Create a TrueCloud/Cloud Backup task for critical data with snapshot enabled and a
-   strong repository password stored offline. TrueNAS uses Restic for this backup path.
-8. Run the backup manually, then restore one small test file to a temporary dataset and
-   compare its contents before deleting only the temporary restore.
+For `tank`:
 
-Do not migrate family data until the restore succeeds.
+1. Open **Storage** and find the `tank` pool.
+2. In **Storage Health** or **ZFS Health**, find **Scheduled Scrub** and click
+   **Schedule** or **Configure**.
+3. Enable the task and select a **Custom** schedule.
+4. Set minute `0`, hour `0`, day of month `22`, every month, and every day of week.
+5. Set **Threshold Days** to `20` and save.
+6. If the Phase 6.3 `tank` scrub just completed and its evidence was recorded, use that
+   as the first proof instead of immediately scrubbing the same pool again. Otherwise,
+   click **Scrub Now > Start Scrub**.
+7. Wait for any newly started scrub to complete and record start time, finish time,
+   duration, pool status, and error counts.
 
-**PASS gate 7:** SMART schedule, staggered scrubs, snapshots, UPS alert, encrypted offsite
-backup, and selected-file restore all pass. Record task IDs and screenshots, never the
-repository password.
+After `tank` finishes, repeat for `archive` using day of month `28` and Threshold Days
+`20`. Reuse the recorded Phase 6.3 archive scrub as its first proof, or run it manually
+if no completed evidence exists. Do not manually scrub both pools simultaneously.
+
+Each scrub passes only when the pool remains **ONLINE/Healthy**, the scan finishes, no
+disk becomes degraded or faulted, and no new read, write, or checksum error appears.
+
+#### Step 7.1.2 — verify the eight stable HDD paths again
+
+**Where:** TRUENAS SHELL
+
+Do not use `/dev/sdX` in a recurring job. From the eight paths recorded in Phase 2, use
+only whole-disk entries below `/dev/disk/by-id`; never use a path ending in `-part1` or
+`-part2`.
+
+Run the following once per path, replacing only the placeholder:
+
+```console
+sudo smartctl -i /dev/disk/by-id/REPLACE_WITH_DISK
+```
+
+Confirm that the model, serial, capacity, and SAS/SATA transport match the intended
+physical HDD. Stop if any path resolves to the PM830, TN320, Inland 512 GB SSD, or a
+partition.
+
+#### Step 7.1.3 — prove manual SMART tests before scheduling them
+
+**Where:** TRUENAS SHELL
+
+Start a short test on one HDD:
+
+```console
+sudo smartctl -t short /dev/disk/by-id/REPLACE_WITH_DISK
+```
+
+Wait until the completion time printed by `smartctl`, then inspect the result:
+
+```console
+sudo smartctl -l selftest /dev/disk/by-id/REPLACE_WITH_DISK
+```
+
+For the complete SATA or SAS record, run:
+
+```console
+sudo smartctl -x /dev/disk/by-id/REPLACE_WITH_DISK
+```
+
+Repeat the short test for all eight HDDs. Each must complete without an unrecoverable
+read failure. Also inspect reallocated, pending, offline-uncorrectable, reported-
+uncorrectable, and SAS grown-defect counts rather than relying only on an overall
+`PASSED` line.
+
+Before scheduling long tests, confirm that neither pool is scanning:
+
+```console
+sudo zpool status tank
+sudo zpool status archive
+```
+
+Start one manual long test on a single HC550, wait for the time printed by the command,
+and inspect its result:
+
+```console
+sudo smartctl -t long /dev/disk/by-id/REPLACE_WITH_ONE_HC550
+```
+
+```console
+sudo smartctl -l selftest /dev/disk/by-id/REPLACE_WITH_ONE_HC550
+```
+
+Later repeat this measurement on one Toshiba. Record actual durations and disk
+temperatures. The HC550 test can take many hours; do not assume one day is enough
+separation until this measurement proves it.
+
+#### Step 7.1.4 — create weekly SMART short-test Cron Jobs
+
+**Where:** TRUENAS UI
+
+Go to **System > Advanced Settings > Cron Jobs**. Create one job for each HDD:
+
+1. Click **Add**.
+2. Enter a description such as `Weekly SMART short - tank disk 1`.
+3. Enter the full-path command, substituting that disk's exact stable path:
+
+   ```console
+   /usr/sbin/smartctl -t short /dev/disk/by-id/REPLACE_WITH_DISK
+   ```
+
+4. Select `root` as **Run As User**.
+5. Choose **Custom** schedule, every month and day of month, on Wednesday, using the
+   time assigned below.
+6. Keep **Hide Standard Error** cleared during commissioning. Standard output can also
+   remain visible until the first scheduled test is proven.
+7. Select **Enabled** and save.
+
+Use these Wednesday times:
+
+| Disk | Time |
+|---|---|
+| `tank` disk 1 | 20:00 |
+| `tank` disk 2 | 20:05 |
+| `tank` disk 3 | 20:10 |
+| `tank` disk 4 | 20:15 |
+| `archive` disk 1 | 20:30 |
+| `archive` disk 2 | 20:35 |
+| `archive` disk 3 | 20:40 |
+| `archive` disk 4 | 20:45 |
+
+The next morning, run `smartctl -l selftest` against all eight stable paths and confirm
+that the newest entry is the scheduled successful short test.
+
+#### Step 7.1.5 — create staggered monthly SMART long-test Cron Jobs
+
+**Where:** TRUENAS UI
+
+Create one more Cron Job for each HDD. Use `root`, enable each job, and use this command
+with the correct stable path:
+
+```console
+/usr/sbin/smartctl -t long /dev/disk/by-id/REPLACE_WITH_DISK
+```
+
+Assign the following custom schedules:
+
+| Disk | Day of month | Time |
+|---|---:|---:|
+| `tank` disk 1 | 1 | 00:30 |
+| `tank` disk 2 | 4 | 00:30 |
+| `tank` disk 3 | 7 | 00:30 |
+| `tank` disk 4 | 10 | 00:30 |
+| `archive` disk 1 | 13 | 00:30 |
+| `archive` disk 2 | 15 | 00:30 |
+| `archive` disk 3 | 17 | 00:30 |
+| `archive` disk 4 | 19 | 00:30 |
+
+At the beginning of each month, compare the calendar with the Wednesday short tests.
+Temporarily disable a short-test job if its long test could still be running. If
+`zpool status` reports a scrub or resilver, disable upcoming long tests until the scan
+finishes and the pool is healthy. Do not schedule manual SMART self-tests for the TN320
+NVMe; use its health data and the automatic TrueNAS disk-health alerts.
+
+#### Step 7.1.6 — create Nextcloud periodic snapshots
+
+**Where:** TRUENAS UI
+
+Go to **Data Protection > Periodic Snapshot Tasks** and create four tasks for
+`tank/family-files/nextcloud-data`. Leave **Recursive** clear unless child datasets have
+deliberately been created under `nextcloud-data`. Enable **Allow Taking Empty
+Snapshots** and **Enabled**.
+
+| Tier | Lifetime | Naming schema | Custom schedule |
+|---|---|---|---|
+| Hourly | 48 hours | `nextcloud-hourly-%Y-%m-%d_%H-%M` | minute 5 of every hour |
+| Daily | 30 days | `nextcloud-daily-%Y-%m-%d_%H-%M` | daily at 00:35 |
+| Weekly | 12 weeks | `nextcloud-weekly-%Y-%m-%d_%H-%M` | Sunday at 01:35 |
+| Monthly | 12 months | `nextcloud-monthly-%Y-%m-%d_%H-%M` | day 1 at 02:35 |
+
+For each row, click **Add**, select the exact dataset, enter the lifetime and naming
+schema, configure the custom schedule, confirm it is enabled, and save.
+
+#### Step 7.1.7 — create Immich periodic snapshots
+
+**Where:** TRUENAS UI
+
+Create the same four tasks for `tank/family-photos/immich-library`, using:
+
+| Tier | Lifetime | Naming schema | Custom schedule |
+|---|---|---|---|
+| Hourly | 48 hours | `immich-hourly-%Y-%m-%d_%H-%M` | minute 15 of every hour |
+| Daily | 30 days | `immich-daily-%Y-%m-%d_%H-%M` | daily at 00:45 |
+| Weekly | 12 weeks | `immich-weekly-%Y-%m-%d_%H-%M` | Sunday at 01:45 |
+| Monthly | 12 months | `immich-monthly-%Y-%m-%d_%H-%M` | day 1 at 02:45 |
+
+These snapshots protect files on the same pool; they are not an independent backup.
+They also do not replace application-aware database dumps. Continue writing completed
+database dumps to `tank/database-dumps`; do not treat snapshots of live PostgreSQL
+database files as the authoritative database backup.
+
+#### Step 7.1.8 — prove selected-file snapshot recovery
+
+**Where:** TRUENAS SHELL and TRUENAS UI
+
+Create a harmless file and record its hash:
+
+```console
+printf 'Nextcloud snapshot proof\n' | sudo tee \
+  /mnt/tank/family-files/nextcloud-data/pnas-snapshot-proof.txt
+```
+
+```console
+sudo sha256sum \
+  /mnt/tank/family-files/nextcloud-data/pnas-snapshot-proof.txt
+```
+
+Run the Nextcloud hourly snapshot task now, or use **Datasets > nextcloud-data > Data
+Protection > Create Snapshot**. After the snapshot exists, change the active file:
+
+```console
+printf 'This is the changed version\n' | sudo tee \
+  /mnt/tank/family-files/nextcloud-data/pnas-snapshot-proof.txt
+```
+
+Open **Datasets > nextcloud-data > Manage Snapshots**, find the snapshot just created,
+expand its actions, and click **Clone to New Dataset**. Enter or accept an unambiguous
+temporary clone name such as `nextcloud-snapshot-proof-clone`, click **Clone**, and then
+click **Go to Datasets**. Select the clone and record the complete Mount Point shown by
+TrueNAS. Do not click **Rollback**.
+
+Locate and hash the proof file inside the clone, replacing the placeholder with the
+mount point just recorded:
+
+```console
+sudo find /REPLACE_WITH_CLONE_MOUNT_POINT -type f \
+  -name 'pnas-snapshot-proof.txt' -print
+```
+
+```console
+sudo sha256sum /FULL/PATH/RETURNED/pnas-snapshot-proof.txt
+```
+
+The clone's hash must equal the hash recorded before the modification, while the active
+dataset must still contain the changed version and remain mounted and writable. After
+recording the result, delete exactly the temporary clone from **Datasets**; do not
+delete the original dataset or snapshot. Perform a snapshot-creation check for Immich
+as well.
+
+#### Step 7.1.9 — configure the connected UPS/NUT service
+
+**Where:** TRUENAS UI and TRUENAS SHELL
+
+The UPS needs both its power connection and its USB or supported network-management
+data connection. A power cable alone cannot report UPS state.
+
+1. Go to **System > Services**, find **UPS**, and click Edit.
+2. Set Identifier to `ups`.
+3. Select **Master** when the UPS USB data cable is connected directly to this NAS.
+4. Select the NUT driver that explicitly supports the installed UPS model. Many USB HID
+   units use `usbhid-ups`, but do not select it without confirming model support.
+5. Set **Port or Hostname** to `auto` for a directly connected USB UPS.
+6. Keep the default Monitor User and replace the default Monitor Password with a strong
+   unique value. Leave **Remote Monitor** disabled.
+7. Set **Shutdown Mode** to **UPS goes on battery** and **Shutdown Timer** to `300`
+   seconds. Leave the default shutdown command unchanged unless it is blank.
+8. Initially leave **Power off UPS** disabled and set No Communication Warning Time to
+   approximately `60` seconds.
+9. Save, start the service, and enable **Start Automatically**.
+
+Check communication:
+
+```console
+upsc ups@localhost
+```
+
+Expected: `ups.status: OL` plus plausible battery charge, runtime, input voltage, and
+load. `OL` means on utility line power.
+
+During a quiet maintenance window, keep the USB cable connected and disconnect only the
+UPS utility input. Within 30–60 seconds, `upsc ups@localhost` must show `ups.status: OB`
+and TrueNAS must create an on-battery alert. Restore utility power before 300 seconds
+and verify status returns to `OL` and shutdown is cancelled.
+
+For the full proof, first stop active transfers and applications, verify both pools are
+healthy, disconnect UPS utility input, and allow the timer to expire. TrueNAS must shut
+down cleanly before the battery is depleted. Restore utility power, boot the NAS, and
+confirm both `zpool status tank` and `zpool status archive` are healthy.
+
+No Firewalla change is required for this USB Master-mode configuration. Never expose
+NUT port 3493 to the Internet. If a future LAN device must query NUT, keep Remote
+Monitor off until a Firewalla rule can restrict access to only that private source IP.
+
+#### Step 7.1.10 — configure system email and immediate alerts
+
+**Where:** TRUENAS UI
+
+1. Go to **System > General Settings**, locate **Email**, and click **Settings**.
+2. Select Gmail OAuth, Outlook OAuth, or SMTP. For Gmail/Outlook, complete the provider
+   authorization. For SMTP, enter the provider's outgoing server, port, TLS mode,
+   username, and app password.
+3. Add every intended notification recipient.
+4. Click **Send Test Mail**, verify receipt including the spam folder, and save.
+5. Click the Alerts bell, then its settings gear, and open **Alert Settings**.
+6. Under Alert Services, edit **Email**, enter the recipient, set Level to **Warning**
+   and Frequency to **Immediately**.
+7. Click **Send Test Alert**, verify receipt, and save.
+
+This step passes only after both the test mail and the separate test alert arrive.
+
+#### Step 7.1.11 — create a restricted Backblaze B2 destination
+
+**Where:** PROVIDER UI
+
+1. In Backblaze, open **B2 Cloud Storage > Buckets > Create a Bucket**.
+2. Use a globally unique name such as `cloudpathz-pnas-restic-UNIQUE_SUFFIX`.
+3. Make the bucket **Private** and enable provider-side encryption if desired.
+4. Do not enable a default Object Lock policy during initial Restic commissioning.
+   Object Lock can prevent repository prune/delete operations and cannot simply be
+   disabled after it is enabled.
+5. Open **Application Keys > Add a New Application Key**.
+6. Name it `truenas-cloud-backup` and restrict it to this one bucket.
+7. Grant the bucket-level equivalents of list bucket, list files, read files, write
+   files, and delete files. Restic retention needs delete permission.
+8. Create the key and capture its Key ID and Application Key. The secret is normally
+   displayed only once. Never use the Backblaze master key for this task.
+
+#### Step 7.1.12 — add the B2 credential to TrueNAS
+
+**Where:** TRUENAS UI
+
+1. Go to **Credentials > Backup Credentials > Cloud Credentials** and click **Add**.
+2. Select **Backblaze B2** and name it `backblaze-b2-pnas`.
+3. Enter the Key ID and Application Key in their matching fields.
+4. Click **Verify Credentials** and wait for success before saving.
+
+If verification fails, check for reversed fields, spaces copied around either value,
+bucket restrictions, DNS, gateway, and outbound HTTPS. Do not add an inbound Firewalla
+port-forward; B2 uses an outbound connection.
+
+When exporting the TrueNAS configuration, always include **Password Secret Seed** so
+saved cloud credentials can be recovered. Protect that configuration export offline.
+
+#### Step 7.1.13 — create and protect the Restic repository password
+
+**Where:** trusted password manager and encrypted offline recovery media
+
+Generate at least 32 random characters or six to eight random words. Do not reuse a
+TrueNAS login, dataset key, Backblaze key, or Cloudflare credential. Record the bucket,
+creation date, and purpose with the password in the password manager, then place copies
+on both encrypted offline recovery devices in separate physical locations.
+
+TrueNAS stores the password in the task, but it cannot decrypt the Restic repository if
+the task/configuration is lost and the offline password is unavailable.
+
+#### Step 7.1.14 — create three Restic Cloud Backup tasks
+
+**Where:** TRUENAS UI
+
+Open **Data Protection** and use **Cloud Backup Tasks** or **TrueCloud Backup Tasks**,
+whichever label 25.10.7 displays. Use this Restic-based task, not an ordinary Cloud Sync
+copy task. Create one task per source path because each task has one source.
+
+If `backblaze-b2-pnas` is not offered as a credential in this Restic backup screen,
+stop and verify the installed 25.10.7 update and Cloud Backup provider support. Do not
+silently substitute Cloud Sync, because it does not provide the repository-password and
+Restic restore workflow proved by this step.
+
+Create these tasks:
+
+| Name | Source path | B2 folder/prefix | Keep Last | Initial schedule |
+|---|---|---|---:|---|
+| `b2-database-dumps` | `/mnt/tank/database-dumps` | `/database-dumps` | 30 | daily 03:30 |
+| `b2-nextcloud-data` | `/mnt/tank/family-files/nextcloud-data` | `/nextcloud-data` | 30 | daily 05:00 |
+| `b2-immich-library` | `/mnt/tank/family-photos/immich-library` | `/immich-library` | 30 | daily 08:00 |
+
+For each task:
+
+1. Click **Add** and select the exact Source Path from the table.
+2. Select credential `backblaze-b2-pnas`, the private B2 bucket, and the unique folder
+   or prefix from the table.
+3. Enter the task Name and Keep Last value.
+4. Enter the offline-recorded Restic repository password.
+5. Configure the custom schedule and enable the task.
+6. Under **Advanced Options**, enable **Use Snapshot**.
+7. Leave **Use Absolute Paths** disabled where snapshot mode requires relative paths.
+8. Use the default transfer setting and leave pre/post scripts empty.
+9. Save.
+
+Use a distinct B2 prefix for every task. Seed the tasks sequentially: temporarily
+disable their schedules, run database dumps manually and wait for success, then run
+Nextcloud and wait, and finally run Immich. Record duration and uploaded size, move the
+recurring start times farther apart if necessary, and then enable the schedules. The
+first photo backup can take many hours; later Restic runs should send mostly changes.
+
+#### Step 7.1.15 — create a known cloud-backup proof file
+
+**Where:** TRUENAS SHELL
+
+Use the smaller database-dumps task for the first restore proof:
+
+```console
+sudo mkdir -p /mnt/tank/database-dumps/commissioning
+```
+
+```console
+printf 'cloudpathz TrueNAS B2 restore proof\n' | sudo tee \
+  /mnt/tank/database-dumps/commissioning/pnas-b2-proof.txt
+```
+
+```console
+sudo sha256sum \
+  /mnt/tank/database-dumps/commissioning/pnas-b2-proof.txt
+```
+
+Record the complete original SHA-256, task name, date, and intended restore destination
+in the commissioning log.
+
+#### Step 7.1.16 — run the cloud backup and inspect it
+
+**Where:** TRUENAS UI and PROVIDER UI
+
+1. Under **Data Protection**, open `b2-database-dumps` and click **Run Now/Run Job**.
+2. Wait for **SUCCESS**, open its log, and confirm there is no repository,
+   authentication, read, upload, or retention error.
+3. Confirm a new Restic snapshot appears with the expected timestamp.
+4. In Backblaze, confirm repository objects exist only in the intended bucket/prefix.
+
+A successful upload is not restore proof. Continue immediately.
+
+#### Step 7.1.17 — create an encrypted temporary restore target
+
+**Where:** TRUENAS UI
+
+1. In **Datasets**, select the encrypted `tank/local-backups` root.
+2. Click **Add Dataset**, name it `cloud-restore-test`, select **Generic**, and inherit
+   encryption from `tank/local-backups`.
+3. Confirm its mount path is `/mnt/tank/local-backups/cloud-restore-test`, it is
+   unlocked, and its encryption root is `tank/local-backups`.
+
+Do not restore over any production dataset.
+
+#### Step 7.1.18 — restore and compare the proof file
+
+**Where:** TRUENAS UI and TRUENAS SHELL
+
+1. Open `b2-database-dumps`, select its newest cloud snapshot, and click **Restore**.
+2. Choose **Include from subfolder** and select only
+   `commissioning/pnas-b2-proof.txt` when the UI offers path selection.
+3. Set Target to `/mnt/tank/local-backups/cloud-restore-test`, check it twice, and start
+   the restore.
+4. Wait for restore success, then locate the resulting file:
+
+   ```console
+   sudo find /mnt/tank/local-backups/cloud-restore-test -type f \
+     -name 'pnas-b2-proof.txt' -print
+   ```
+
+5. Use the complete path printed by `find`:
+
+   ```console
+   sudo cat /FULL/PATH/RETURNED/pnas-b2-proof.txt
+   ```
+
+   ```console
+   sudo sha256sum /FULL/PATH/RETURNED/pnas-b2-proof.txt
+   ```
+
+6. Compare the restored SHA-256 with the original. They must be identical.
+
+After recording the successful proof, use **Datasets** to delete exactly
+`tank/local-backups/cloud-restore-test`. Verify that it has no share, application, or
+replication dependency. Do not delete its parent, a cloud snapshot, the production B2
+task, the bucket, source data, or any encryption key.
+
+Do not migrate family data until every part of this step succeeds.
+
+**PASS gate 7:** both initial scrubs completed without errors; all eight HDD short tests
+passed; one timed long test from each pool passed; all short/long schedules are enabled
+without planned overlap; all eight snapshot schedules exist and selected-file recovery
+matches its original hash; UPS `OL`, `OB`, alert, cancelled-shutdown, and full clean-
+shutdown tests pass; both test emails arrive; B2 credentials verify; the Restic password
+exists in two encrypted offline locations; all three backups succeed; and the restored
+proof-file SHA-256 matches exactly. Record task IDs, dates, durations, hashes, and
+screenshots, but never secret values.
 
 ## Phase 8 — copy the repository to the NAS and create secrets
 
@@ -1345,7 +1965,7 @@ final configuration export, and access-removal checks all pass.
 - [ ] `tank` is four HC550 SAS/512e disks in RAIDZ2.
 - [ ] `archive` is four Toshiba SATA/512e disks in RAIDZ2.
 - [ ] Both HDD pools scrubbed with zero errors.
-- [ ] Encryption lock/unlock and two offline key copies were tested.
+- [ ] All six encryption roots are unlocked and have two verified offline key copies.
 - [ ] Snapshot and encrypted offsite restore tests passed.
 - [ ] UPS event, alert, and shutdown policy were tested.
 - [ ] LAN split DNS returns service IP; tailnet split DNS returns Tailscale IP.
