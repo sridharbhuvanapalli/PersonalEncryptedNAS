@@ -59,20 +59,18 @@ Edition on the PM830.
 
 ## Restart checkpoint — resume commissioning here
 
-The current restart point is **Step 8.3.1**: verify mounted data paths in the host
-SSH session, then update the existing container YAML in **8.3.2** and verify CLI help
-inside its shell in **8.3.3**.
-The CLI entry point exists, but a clean `pnasctl --help` result has not yet been
-confirmed: the last error combined `--help` with a second command. Run one command
-block at a time at a fresh prompt.
+The current reported activity is **Phase 9**. Resume at **Step 9.3** after checking
+that PASS gate 8 and Steps 9.1–9.2 were actually completed. If any earlier gate is
+unverified, complete it first; a Tailscale device appearing in `tailscale status`
+does not prove the earlier commissioning gates passed.
 
 The writable mount migration in **Step 8.3.2** is required before later commands. The earlier
 container mounted `/mnt/apps/pnas/repo` read-only at `/workspace`; that was sufficient
 for a help check, but cannot create the later configuration, secrets, or state files.
 The revised container preserves NAS paths and uses a persistent, container-created
 venv. Reopen its shell after saving the updated YAML, then perform Step 8.3.3.
-Once help works, continue at **Step 8.4**, then **8.5**, then Phase 9. Do not repeat
-pool creation, formatting, secret generation, or completed recovery proofs.
+If resuming before Phase 9, continue at **Step 8.4**, then **8.5**. Do not repeat pool
+creation, formatting, secret generation, or completed recovery proofs.
 
 Recorded troubleshooting facts (2026-10-18; verify live state before using):
 
@@ -80,7 +78,11 @@ Recorded troubleshooting facts (2026-10-18; verify live state before using):
   `192.168.1.110/24`; repository: `/mnt/apps/pnas/repo`.
 - The SSH prompt showed hostname `bhuvanapalliNAS`; the planned hostname is
   `family-nas`. Confirm this is the intended NAS and reconcile hostname/Tailscale
-  naming before Phase 9. Do not infer a hostname change has already happened.
+  naming before completing Phase 9. Do not infer an OS hostname change has happened.
+- On 2026-10-19 the Mac's `tailscale status` listed the Linux NAS as
+  `bhuvanapalli-truenas-scale` at `100.109.251.113`, despite `bhuvanapalli-nas`
+  being entered during setup. Verify the current name and address in **Machines**
+  and from the NAS Tailscale app before using them; do not use the Mac's address.
 - Host Python was 3.11.9, below the project's 3.12 requirement. Do not use a host venv.
 - The unused `apps` pool on the Inland NVMe reported corruption and repeated kernel
   medium/read errors despite SMART PASSED. A later report showed roughly one full
@@ -1664,76 +1666,357 @@ files exist; secret files are 0600; no secret appeared on screen or in shell his
 
 ## Phase 9 — install and test Tailscale
 
+This phase joins the NAS to a private Tailscale network (the **tailnet**) and verifies
+its identity. A second client is needed only to test access from outside the house;
+enrolling a Mac is optional. It does not yet deploy
+Nextcloud, Immich, Operations Manager, or the private DNS listeners. Those application
+checks belong to Phases 12–14. Keep local management access available during setup.
+
+Four different locations are used below:
+
+| Location | What runs there |
+|---|---|
+| Tailscale admin console in a trusted browser | Users, access policy, enrollment key, device approval, MagicDNS |
+| TrueNAS UI | Install/configure/restart the catalog Tailscale app |
+| TAILSCALE APP SHELL | `tailscale` commands describing the NAS itself |
+| COMMISSIONING CONTAINER | Python, `pnasctl`, configuration, and saved observations |
+| Optional TAILSCALE CLIENT | A phone or computer used for remote testing when one is available |
+
+The commissioning container does not run Tailscale. Do not install the Tailscale daemon
+or Python packages on the TrueNAS host to complete this phase. Firewalla requires no
+NAS port forward or inbound allow rule; retain its default ingress protection.
+
 ### Step 9.1 — prepare the tailnet
 
-**Where:** TAILSCALE PROVIDER UI
+**Where:** TAILSCALE PROVIDER UI on a trusted device
 
-1. Enable MFA/SSO, device approval, and MagicDNS.
-2. Create a one-use, short-lived, pre-approved key restricted to `tag:nas`.
-3. Do not save this enrollment key in a repository file.
+#### Step 9.1.1 — sign in and prepare users/devices
 
-### Step 9.2 — install the supported TrueNAS app
+1. Open [the Tailscale admin console](https://login.tailscale.com/admin) and create or
+   select the personal tailnet you intend to use for this NAS.
+2. Protect its sign-in identity through the identity provider's MFA settings. Each
+   family member uses their own identity; do not share the owner's login.
+3. Under **Settings > Device management**, enable **Device approval** if available
+   for your account. Retain access to the console while doing so.
+4. Under **DNS**, enable **MagicDNS**. It resolves the NAS's actual machine name
+   shown in **Machines**; it does not rename the NAS.
+5. No client device is required to enroll the NAS. When you later want to test remote
+   access, install Tailscale on a phone or computer, sign it into the same tailnet,
+   and approve that recognized device in **Machines** if prompted. Keep personal
+   clients user-owned; the NAS uses the server tag.
+
+MagicDNS resolves tailnet device names. It does not yet configure
+`cloud.nas.cloudpathz.com`, `photos.nas.cloudpathz.com`, or `ops.nas.cloudpathz.com`.
+Do not add the NAS as a custom nameserver until its CoreDNS listener exists in Phase 13.
+
+References: [device approval](https://tailscale.com/docs/features/access-control/device-management/device-approval),
+[MagicDNS](https://tailscale.com/docs/features/magicdns),
+[adding a client](https://tailscale.com/docs/features/access-control/device-management/how-to/set-up).
+
+#### Step 9.1.2 — define the NAS tag and who can connect
+
+**Where:** project repository, then TAILSCALE PROVIDER UI > Access controls
+
+Open `config/tailscale/grants.hujson`. Replace the administrator `example.invalid` identity with your actual Tailscale
+account identity. If no family identities exist yet, omit the `group:family` definition
+and its grant for now; add them before those users join. Do not submit placeholder
+identities. Review the resulting policy in **Access controls**. If this tailnet
+already serves other devices, merge the NAS policy carefully and retain their intended
+access; do not blindly replace the entire existing policy.
+
+The repository policy defines:
+
+| Source | Destination | Allowed service traffic |
+|---|---|---|
+| `group:nas-admins` | `tag:nas` | TCP 22, TCP 443, TCP 53, UDP 53 |
+| `group:family` | `tag:nas` | TCP 443, TCP 53, UDP 53 |
+| Users outside both groups | `tag:nas` | No NAS service traffic |
+
+`tagOwners` allows `group:nas-admins` to assign `tag:nas`. A tag by itself does not
+restrict access. Review and remove or narrow any overlapping allow-all ACL/grant that
+would give unrelated users access to the NAS: grants are additive, so a narrow NAS
+rule cannot override a broad grant. Preserve unrelated service access intentionally.
+The repository's `ssh` policy stanza does not itself enable Tailscale SSH; this phase
+leaves Tailscale SSH disabled and preserves the separately configured OpenSSH service.
+
+Before saving, use the policy editor's preview/tests to check the actual identities:
+
+- A NAS administrator can reach `tag:nas` on TCP 22/443 and TCP/UDP 53.
+- When a family-only identity is added, it can reach TCP 443 and TCP/UDP 53, and
+  cannot reach TCP 22 or 445.
+- When an independent test identity exists, it has no access to those NAS ports.
+
+Use a family identity that is not also an administrator when checking the restriction.
+If only the NAS and owner identity exist, record family and unrelated-identity
+checks as pending until those identities are available. Save only after the policy validates and preserves the
+intended access to other devices.
+
+References: [server tags](https://tailscale.com/docs/features/tags),
+[grants and additive rules](https://tailscale.com/docs/reference/syntax/grants),
+[policy editing/testing](https://tailscale.com/kb/1338/acl-edit).
+
+#### Step 9.1.3 — generate the NAS enrollment key
+
+**Where:** TAILSCALE PROVIDER UI > Settings > Keys
+
+Select **Generate auth key** and choose:
+
+| Setting | Value |
+|---|---|
+| Description | `nas-initial-enrollment` (label only; do not generate another key for an enrolled NAS) |
+| Reusable | Off: one use only |
+| Expiration | Shortest practical window sufficient for this installation |
+| Ephemeral | Off: the NAS must retain its identity |
+| Pre-approved | On, when device approval is enabled |
+| Tags | `tag:nas` |
+
+If `tag:nas` is unavailable, return to the tag ownership policy; do not enroll an
+untagged NAS as a workaround. Copy the key directly into the TrueNAS app's private
+**Auth Key** field in the next step. Do not paste it into chat, shell history, source
+control, screenshots, or `.commissioning.env`.
+
+A one-use auth key is automatically revoked after use. If it remains active after
+successful enrollment, revoke it in **Keys**. Revoking an enrollment key does not
+remove an already enrolled device. [Tailscale auth keys](https://tailscale.com/docs/features/access-control/auth-keys)
+
+### Step 9.2 — install the catalog TrueNAS Tailscale app
 
 **Where:** TRUENAS UI
 
-Go to **Apps > Discover Apps > Tailscale > Install** and set:
+1. Verify **Apps Service Running** and the `apps` pool ONLINE. Resolve storage errors
+   before installing anything.
+2. Open **Apps > Discover Apps**, search **Tailscale**, open its catalog entry, and
+   click **Install**. This is a separate app from `pnas-commissioning`.
+3. Apply these settings (labels can vary with the catalog version):
 
-- hostname: `family-nas`;
-- host network: enabled;
-- userspace networking: disabled;
-- accept DNS: disabled;
-- tag: `tag:nas`;
-- exit node, subnet routes, and Funnel: disabled.
+| Setting | Value |
+|---|---|
+| Application name | `tailscale` |
+| Hostname | `bhuvanapalli-nas` was entered for this installation; verify the resulting name in **Machines** |
+| Auth Key | One-use tagged key from 9.1.3 |
+| Auth Once | On |
+| Reset | Off |
+| Host Network | On |
+| Userspace | Off |
+| Accept DNS | Off |
+| Accept Routes | Off |
+| Advertise Exit Node | Off |
+| Advertised routes | Empty |
+| Tailscale SSH / Serve / Funnel | Leave disabled; do not add enabling arguments |
+| State storage | Persistent default app storage/ixVolume, not temporary storage |
 
-Enter the one-use key in the app form. After the app joins, revoke that key in Tailscale
-and approve the `family-nas` device. Record its `100.64.0.0/10` address.
+Host networking with userspace disabled lets the catalog app establish the NAS tunnel.
+Persistent state retains the node identity. Accept DNS is off on the NAS to preserve
+its existing resolver setup; leave **Use Tailscale DNS settings** enabled on the Mac.
+Install and wait for Running. If it fails, expand the failed job and app logs; do not
+keep regenerating enrollment keys without reading the error.
 
-### Step 9.3 — update production hosting configuration
+Sources: [TrueNAS catalog app](https://apps.truenas.com/catalog/tailscale/),
+[Tailscale's TrueNAS integration](https://tailscale.com/docs/integrations/truenas).
 
-**Where:** COMMISSIONING CONTAINER
+**Where:** TAILSCALE PROVIDER UI > Machines
 
-Activate the container environment and load non-secret values:
+4. Find the newly enrolled NAS and check its creation time, Linux identity,
+   `tag:nas`, Connected/online state, and Tailscale IPv4 address. It should be inside
+   `100.64.0.0/10`; this is different from LAN addresses `.100` and `.110`. The
+   Mac listed `bhuvanapalli-truenas-scale` at `100.109.251.113` on 2026-10-19;
+   recheck the live record before using either value.
+5. A pre-approved key normally needs no second approval. If the recognized NAS is
+   explicitly awaiting approval, approve it. Do not approve an unexplained duplicate.
+6. Confirm the one-use key is revoked/consumed. If the app form supports clearing that
+   key while retaining persistent state and Auth Once, clear it; do not delete state.
+7. In TrueNAS stop/start the Tailscale app once. Confirm the same machine and Tailscale
+   address return online, without a duplicate or a new key. If it asks for enrollment
+   again, fix persistent state before continuing.
+
+The TrueNAS OS hostname, the hostname entered in the app, and the resulting Tailscale
+machine name can differ. Use the NAS entry in **Machines** and the NAS app's own
+`tailscale status` as evidence. Align `config/pnas.yaml` with the resulting Tailscale
+machine name in Step 9.3. Do not re-enroll the NAS merely to change a label, and do
+not mistake your Mac's Tailscale address for the NAS address.
+
+### Step 9.3 — record the NAS identity and collect diagnostic evidence
+
+**Where:** TAILSCALE APP SHELL (not the commissioning container or NAS host SSH shell)
+
+Open **Apps > tailscale > Shell**, select its Tailscale workload/container, and choose
+`/bin/sh` if prompted. Run separately:
+
+```console
+tailscale status
+tailscale ip -4
+tailscale status --json
+```
+
+Confirm the IPv4 address matches the NAS entry in **Machines**. Keep the JSON from this
+NAS shell for the capture below. Its `Self` object must describe the NAS. Output from
+`tailscale status --json` on the Mac describes the Mac and fails this identity check.
+The full JSON can contain private addresses/user metadata; keep it private.
+
+The Mac's last reported NAS name and address were `bhuvanapalli-truenas-scale` and
+`100.109.251.113`. If the NAS app or **Machines** now shows a different name or IP,
+use the current matching NAS values throughout the remaining steps.
+
+**Where:** COMMISSIONING CONTAINER > commissioning > `/bin/bash`
+
+Activate the environment and load the existing non-secret values:
 
 ```console
 cd /mnt/apps/pnas/repo
 . /mnt/apps/pnas/runtime/venv/bin/activate
 . ./.commissioning.env
+read -r -p 'Enter the NAS Tailscale IPv4 address: ' PNAS_TAILSCALE_IP
 ```
 
-Record the Tailscale IP in this shell without placing it in history:
+Check `config/pnas.yaml` under `remote_access.tailscale.hostname`. Set that value to
+the NAS's **current Tailscale machine name**, not the TrueNAS OS hostname or the
+name originally typed into the app. For the observed record above, it should be:
+
+```yaml
+remote_access:
+  tailscale:
+    hostname: bhuvanapalli-truenas-scale
+```
+
+Change only that field in the existing configuration; do not replace the whole
+`remote_access` section with this excerpt. If the name changes later, update the
+field and recapture the NAS status before rerunning `tailscale-doctor`.
+
+Validate the complete address, rather than just checking that it starts with `100`:
 
 ```console
-read -r -p 'Enter the family-nas Tailscale IP: ' PNAS_TAILSCALE_IP
+python -c 'import ipaddress,sys; a=ipaddress.ip_address(sys.argv[1]); assert a in ipaddress.ip_network("100.64.0.0/10"), "Not a Tailscale IPv4 address"; print(a)' "$PNAS_TAILSCALE_IP"
 ```
 
-Confirm it begins with `100.`:
+Save the non-secret address and begin capturing the NAS JSON:
 
 ```console
-printf '%s\n' "$PNAS_TAILSCALE_IP"
+umask 077
+mkdir -p /mnt/apps/pnas/observations
+printf '%s\n' "$PNAS_TAILSCALE_IP" > /mnt/apps/pnas/observations/tailscale-ip.txt
+cat > /mnt/apps/pnas/observations/tailscale-status.json
 ```
 
-### Step 9.4 — test from outside the house
+The last command waits for input: paste only the complete JSON from the **Tailscale app
+shell**, starting with `{` and ending with `}`. Press Enter after the closing brace,
+then Ctrl+D on an empty line to finish. Do not paste prompts or the human-readable
+`tailscale status` table. Keep this status file current when rechecking later.
+
+Validate the JSON and run the repository's NAS identity check:
+
+```console
+python -m json.tool /mnt/apps/pnas/observations/tailscale-status.json > /dev/null
+pnasctl --config config/pnas.yaml tailscale-doctor \
+  --status-file /mnt/apps/pnas/observations/tailscale-status.json
+```
+
+Expected: `ok: true`, expected and observed hostname matching the current NAS
+machine name (last observed: `bhuvanapalli-truenas-scale`), and a NAS Tailscale
+address. With only the NAS on the tailnet, peer counts can be zero. This check validates the captured identity/online state; it does not prove
+application reachability or enforce the access policy. If no peer has connected yet,
+direct/relayed peer counts can be zero. Refresh the capture after the remote test if
+needed. Fix invalid JSON, a Mac `Self` identity, or a mismatched NAS hostname before
+continuing.
+
+To restore the address in a later commissioning-container shell:
+
+```console
+read -r PNAS_TAILSCALE_IP < /mnt/apps/pnas/observations/tailscale-ip.txt
+```
+
+This step records the address only. Phase 12 uses it to configure application hosting.
+
+### Step 9.4 — optional remote test when a client is available
+
+This requires a second tailnet device. If the NAS is the only device you want enrolled
+now, mark this test **pending** and continue after the NAS-only gate below. Return here
+when you want to verify remote access, and complete it before relying on the NAS from
+outside the house. A phone can be the client; the Mac is only an example.
 
 **Where:** TAILSCALE CLIENT on cellular/hotspot, not home Wi-Fi
 
+1. Connect a phone or computer to the same tailnet under an approved administrator
+   identity. Approve it in **Machines** if prompted.
+2. Test away from home Wi-Fi. On a Mac, use a cellular hotspot and disconnect any
+   home Ethernet. On a phone, turn Wi-Fi off and use cellular data.
+3. On a Mac, open Terminal. If `tailscale` is not found but the app is installed in
+   `/Applications`, define its bundled CLI for this terminal:
+
+```console
+alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+```
+
+From a computer with the Tailscale CLI, run:
+
 ```console
 tailscale status
+tailscale ping --c 4 bhuvanapalli-truenas-scale
 ```
 
-```console
-tailscale ping family-nas
-```
+Replace the name in the ping command if **Machines** shows a newer NAS machine name.
+On a phone, use the Tailscale app to confirm the NAS is listed and connected;
+CLI ping is optional there. App service tests come after deployment in Phase 13.
 
-Expected: the NAS is online. `direct` is preferred; a DERP relay is encrypted but slower.
+Expected: the NAS is online and replies over a direct path or encrypted relay. If the
+name fails, try the numeric NAS Tailscale address from 9.3 to distinguish DNS trouble
+from tunnel trouble. A relayed path is functional; record it as a performance follow-up
+rather than opening WAN ports. The bundled CLI location is documented in the
+[Tailscale CLI reference](https://tailscale.com/docs/reference/tailscale-cli?tab=macos).
 
-To produce NAS-self diagnostic JSON, open the Tailscale app's workload shell in the
-TrueNAS UI and run `tailscale status --json`. Save that output as
-`/mnt/apps/pnas/observations/tailscale-status.json` through the commissioning container
-shell. Do not use JSON captured from the remote laptop because its `Self` identity is
-the laptop, not the NAS.
+A default `tailscale ping` checks Tailscale path discovery. It does not prove that an
+HTTP/DNS listener exists or that a user has access to an application port. Ordinary
+ICMP ping may be denied by the port-specific NAS policy; do not broaden the policy
+just to make ICMP succeed. [Tailscale ping types](https://tailscale.com/docs/reference/ping-types)
 
-**PASS gate 9:** NAS is approved/tagged/online, remote ping works, enrollment key is
-revoked, and an unauthorized tailnet identity cannot reach the NAS.
+4. Recheck the access-policy preview/tests from 9.1.2 for every identity that exists. Do not use a successful or failed discovery ping as a
+   substitute for a denied-service test.
+5. After Phases 12–13 deploy HTTPS/DNS listeners, repeat the test from outside and
+   verify actual authorized service connections plus denied connections from a test
+   identity. Until those listeners exist, a timeout/refusal on TCP 443 or DNS is not a
+   useful live access-policy proof. Do not expect the TrueNAS UI or SSH to listen on
+   the Tailscale address if they are intentionally bound to the management LAN IP.
+6. If you used a Mac hotspot, return it to the home LAN when finished; the remaining
+   phases assume local management access unless a step says otherwise.
+
+Troubleshooting:
+
+| Observation | Next check |
+|---|---|
+| No NAS in Machines | App logs, auth-key validity, tag ownership, outbound DNS/Internet access |
+| Needs approval | Recognize the NAS, then approve it in Machines |
+| Duplicate after restart | Persistent app state and Auth Once; verify identity before removing any duplicate |
+| Numeric Tailscale IP works, name fails | MagicDNS and the client's Use Tailscale DNS settings |
+| Only DERP/relay works | Record performance; inspect outbound connectivity, do not add inbound rules |
+| Tunnel ping works, app connection fails | Actual listener, bind address, and effective grants/ACLs |
+| `tailscale` missing in commissioning shell | Use the Tailscale app shell for NAS observations |
+
+**PASS gate 9:** Complete these checks before Phase 10:
+
+1. Confirm PASS gate 8 and Steps 9.1–9.2 are complete: the intended NAS is the
+   recognized Linux machine in **Machines**, approved if required, tagged `tag:nas`,
+   online, and assigned a Tailscale IPv4 address. Confirm the one-use enrollment key
+   is consumed or revoked.
+2. Restart only the Tailscale app once. Verify that the same NAS identity, machine
+   name, and Tailscale IP return online without another enrollment or duplicate.
+3. In Step 9.3, capture `tailscale status --json` from the **NAS Tailscale app shell**;
+   check that its `Self` identity and IP match **Machines**. Save and validate the
+   address and JSON in the commissioning container. Set
+   `remote_access.tailscale.hostname` in `config/pnas.yaml` to that actual machine
+   name; `pnasctl tailscale-doctor` must return `ok: true` with matching expected and
+   observed names.
+4. Validate the access policy for every identity that already exists, including the
+   owner's intended access and absence of unintended broad grants. Record family and
+   unrelated-user checks as pending only when those separate identities do not exist.
+
+The Mac is now enrolled, but a remote test is complete only after Step 9.4 succeeds
+while it uses a cellular hotspot or another connection outside the home LAN. If that
+test cannot be done yet, mark it **pending** and continue to Phase 10; complete it
+before claiming remote access works. Live HTTPS/DNS service tests remain pending
+until Phase 13, when their listeners exist. A discovery ping cannot prove them.
+
+Continue to **Phase 10 — move authoritative DNS to Cloudflare** after the four
+checks above pass. This is distinct from MagicDNS and does not require publishing
+the NAS's private service addresses.
 
 ## Phase 10 — move authoritative DNS to Cloudflare
 
@@ -1883,13 +2166,13 @@ TrueNAS-managed Custom App named `pnas-services`. It does not run Docker directl
 
 **Where:** COMMISSIONING CONTAINER
 
-If this is a new shell, reload values and enter the already recorded Tailscale IP:
+If this is a new shell, reload values and the NAS IP saved in Step 9.3:
 
 ```console
 cd /mnt/apps/pnas/repo
 . /mnt/apps/pnas/runtime/venv/bin/activate
 . ./.commissioning.env
-read -r -p 'Enter the family-nas Tailscale IP: ' PNAS_TAILSCALE_IP
+read -r PNAS_TAILSCALE_IP < /mnt/apps/pnas/observations/tailscale-ip.txt
 ```
 
 Run:
