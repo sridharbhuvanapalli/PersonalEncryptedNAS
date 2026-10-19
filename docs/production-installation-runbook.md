@@ -6,13 +6,14 @@ This guide is written so that an operator who has never built a NAS can follow i
 step at a time. Do not skip a **PASS gate**. If a gate fails, stop at that step and use
 the failure instructions. Never keep going because a later step might fix it.
 
-The guide uses five location labels:
+The guide uses the following location labels:
 
 | Label | Where you perform the action |
 |---|---|
 | **MAC TERMINAL** | Terminal on the trusted Mac containing this repository |
 | **TRUENAS UI** | Web browser connected to the private TrueNAS management address |
-| **TRUENAS SHELL** | TrueNAS web Shell or temporary SSH session; only write below `/mnt` |
+| **TRUENAS SHELL** | NAS host web Shell or SSH; use `sudo` for administrative work and only write to verified data datasets below `/mnt` |
+| **COMMISSIONING CONTAINER** | Apps → pnas-commissioning → Shell → commissioning; select `/bin/bash`, then activate the container-created venv |
 | **TAILSCALE CLIENT** | An approved laptop or phone using a network outside the home |
 | **PROVIDER UI** | GoDaddy, Cloudflare, Tailscale, Backblaze, or UPS interface |
 
@@ -34,7 +35,8 @@ what success looks like; do not type it.
 - Never type a password, API key, encryption key, or Cloudflare token directly in a
   command. This guide uses hidden prompts or mode-0600 files.
 - Never install packages into the TrueNAS boot environment. The Python virtual
-  environment and repository live under `/mnt/apps`.
+  environment is created and used inside the commissioning container; its persistent files
+  and the repository live on the `apps` data pool.
 - Never use `docker compose` from the TrueNAS shell for production configuration. The
   production workflow submits one Custom App through the supported TrueNAS API.
 
@@ -43,7 +45,7 @@ what success looks like; do not type it.
 | Hardware | Required assignment |
 |---|---|
 | Samsung PM830 128 GB SATA SSD | TrueNAS `boot-pool` only |
-| Inland TN320 1 TB NVMe | Initial single-device `apps` pool |
+| Inland TN320 512 GB NVMe, serial `IB24AL0512P00879` | Initial single-device `apps` pool; provisional commissioning use after prior read failures |
 | Inland 512 GB SATA SSD | Separate `app-recovery` pool |
 | Four WD Ultrastar DC HC550 18 TB SAS/512e disks | `tank`, one four-wide RAIDZ2 vdev |
 | Four Toshiba DT01ACA300 3 TB SATA/512e disks | `archive`, one four-wide RAIDZ2 vdev |
@@ -54,6 +56,39 @@ what success looks like; do not type it.
 
 Windows 11 is not the base operating system. This deployment installs TrueNAS Community
 Edition on the PM830.
+
+## Restart checkpoint — resume commissioning here
+
+The current restart point is **Step 8.3.1**: verify mounted data paths in the host
+SSH session, then update the existing container YAML in **8.3.2** and verify CLI help
+inside its shell in **8.3.3**.
+The CLI entry point exists, but a clean `pnasctl --help` result has not yet been
+confirmed: the last error combined `--help` with a second command. Run one command
+block at a time at a fresh prompt.
+
+The writable mount migration in **Step 8.3.2** is required before later commands. The earlier
+container mounted `/mnt/apps/pnas/repo` read-only at `/workspace`; that was sufficient
+for a help check, but cannot create the later configuration, secrets, or state files.
+The revised container preserves NAS paths and uses a persistent, container-created
+venv. Reopen its shell after saving the updated YAML, then perform Step 8.3.3.
+Once help works, continue at **Step 8.4**, then **8.5**, then Phase 9. Do not repeat
+pool creation, formatting, secret generation, or completed recovery proofs.
+
+Recorded troubleshooting facts (2026-10-18; verify live state before using):
+
+- Administrator: `truenas_admin`; management: `192.168.1.100/24`; service:
+  `192.168.1.110/24`; repository: `/mnt/apps/pnas/repo`.
+- The SSH prompt showed hostname `bhuvanapalliNAS`; the planned hostname is
+  `family-nas`. Confirm this is the intended NAS and reconcile hostname/Tailscale
+  naming before Phase 9. Do not infer a hostname change has already happened.
+- Host Python was 3.11.9, below the project's 3.12 requirement. Do not use a host venv.
+- The unused `apps` pool on the Inland NVMe reported corruption and repeated kernel
+  medium/read errors despite SMART PASSED. A later report showed roughly one full
+  device write/read and no recent matching kernel errors. This does not certify the
+  SSD or independently confirm the wipe/readback exit status. Keep the disk provisional,
+  retain recovery copies elsewhere, and replace it if errors recur.
+- The pool was being recreated. Verify `apps` ONLINE, datasets mounted, and Apps Service
+  Running; do not assume those gates passed merely because the steps were discussed.
 
 ## Phase 0 — prepare the Mac and record all values
 
@@ -396,19 +431,33 @@ named administrator from Phase 0, set a unique password, enable MFA, set hostnam
 
 **Where:** TRUENAS UI
 
-Go to **Network > Interfaces**, edit the physical LAN interface, and add the service IP
-as an alias using the recorded prefix length. Do not replace the management address.
-In **Firewalla > Network Manager > LAN > Edit**, confirm the service IP is inside the
-LAN subnet, outside the dynamic DHCP allocation range, and not used by another device.
-Do not create a second reservation for the same NAS NIC.
-Apply and test changes from the Mac:
+1. In Firewalla open **Network > LAN > Edit** for the NAS LAN. Confirm both addresses
+   belong to the LAN, the static service address is outside the dynamic DHCP range,
+   and neither address belongs to another device. A Firewalla device/history entry
+   alone does not prove an address is currently assigned on TrueNAS. Do not create
+   another DHCP reservation for the same NIC.
+2. In TrueNAS open **Network > Interfaces** (or **System > Network**), locate the
+   interface carrying the current working address, and record its settings.
+3. Select **⋮ > Edit**. Under **Aliases / Static IP Addresses**, preserve the existing
+   address and click **Add** for the missing address. In this deployment the final
+   list is `192.168.1.100/24` and `192.168.1.110/24` on the same interface. If `.110`
+   is already configured, add `.100`; do not replace `.110`.
+4. If DHCP is enabled and adding static addresses requires disabling it, first record
+   and preserve the management address, gateway, and DNS settings. Do not blindly
+   switch addressing modes or edit a physical member of an existing bridge/LAGG.
+5. Save, click **Test Changes**, and test from the Mac during the displayed countdown:
 
 ```console
+ping -c 4 "$PNAS_MANAGEMENT_IP"
 ping -c 4 "$PNAS_SERVICE_IP"
 ```
 
-Expected: both management and service IPs respond independently. If the UI becomes
-unreachable, use the local console to revert the interface change.
+Refresh the management UI. If both addresses respond and management access works,
+click **Save Changes** before the countdown expires. Otherwise let the changes revert;
+use the local Console Setup network menu if access remains lost. Two addresses on one
+NIC are address aliases, not separate VLANs or a security boundary.
+
+[TrueNAS interface configuration](https://www.truenas.com/docs/scale/25.10/scaletutorials/network/interfaces/)
 
 ### Step 3.4 — update and export configuration
 
@@ -481,8 +530,8 @@ All actions in this phase use the TRUENAS UI. Do not use shell `zpool` commands.
 
 1. Go to **Storage > Create Pool**.
 2. Name it `apps`.
-3. Select only the Inland TN320 1 TB NVMe by model and serial.
-4. Accept one single-device data vdev for the initial build.
+3. Select only the Inland TN320 512 GB NVMe, serial `IB24AL0512P00879`, after checking the physical model and serial.
+4. Choose **Stripe** under **Data VDEVs** with that one NVMe only. Leave optional Log, Cache, Spare, Special, and Dedup vdevs empty.
 5. Reject any screen showing another disk or a second top-level vdev.
 6. Click **Create** and accept the warning that this initial SSD pool has no redundancy.
 7. Open **Datasets**, select `apps`, and click **Add Dataset**.
@@ -533,7 +582,26 @@ app-recovery
 **Where:** TRUENAS UI
 
 Go to **Apps > Configuration/Settings > Choose Pool**, select `apps`, and wait until the
-header reports **Apps Service Running**.
+header reports **Apps Service Running**. Pool creation alone does not select it for Apps.
+If **Install via YAML** is disabled, check this service status before continuing; the
+menu is on **Apps > Discover Apps > ⋮ beside Custom App**. If service startup fails,
+expand the Alerts/Jobs error and inspect from the host:
+
+```console
+sudo midclt call docker.status
+sudo midclt call docker.config
+sudo zpool status apps
+```
+
+An `apps (Exported)` label does not prove it is importable. Use **Storage > Import Pool**
+for an existing healthy exported pool. If it is absent or faulted, stop and diagnose;
+do not create a new pool over data that needs recovery. For this session only, the user
+confirmed the old pool was unused before authorizing its wipe/rebuild. A stale OFFLINE
+entry can be disconnected with **Destroy data** unchecked after unsetting the Apps
+selection; never disconnect an ONLINE pool merely to clear an old message.
+
+A full-zero wipe followed by a full-device read can test current I/O, but does not erase
+this SSD's error history. Do not repeat that destructive test as a normal restart step.
 
 ### Step 5.4 — test both pools
 
@@ -1236,9 +1304,77 @@ screenshots, but never secret values.
 
 **Where:** TRUENAS UI
 
-Edit the named administrator and temporarily enable SSH/Shell access using an SSH key.
-Start the SSH service, bind it only to the management interface, and do not create a
-Firewalla port forward or Internet allow rule. Disable this access after commissioning.
+1. Edit the actual administrator under **Credentials > Users**. In this deployment,
+   the account that successfully logged in was `truenas_admin`, not `bhunasadmin`.
+2. Enable **SSH Access**, select an interactive shell such as `bash`, and verify a
+   valid home directory. On the Mac display the public key with:
+
+```console
+cat ~/.ssh/pnas_commissioning_ed25519.pub
+```
+
+3. Paste that complete public-key line into the same user's **Public SSH Key** field.
+   Keep password SSH login disabled; do not enable passwordless sudo. Save.
+4. In **System > Services > SSH**, confirm port 22 and the intended management
+   interface, then start SSH. Do not create Firewalla port forwarding or Internet rules.
+   A user SSH key does not start the SSH service. Binding to an interface with both
+   aliases may expose SSH on both addresses; do not assume the aliases isolate services.
+
+**Where:** MAC TERMINAL
+
+Reload `.commissioning.env` and check its non-secret values:
+
+```console
+cd "/Users/sridharb/Documents/Personal Encrypted NAS"
+. ./.commissioning.env
+printf 'Admin: %s\nManagement: %s\nService: %s\nRepo: %s\n' \
+  "$PNAS_ADMIN_USER" "$PNAS_MANAGEMENT_IP" "$PNAS_SERVICE_IP" "$PNAS_NAS_REPO_PATH"
+```
+
+Expected here: `truenas_admin`, `192.168.1.100`, `192.168.1.110`, and
+`/mnt/apps/pnas/repo`. If the username is wrong, correct `admin_username` in the canonical
+`config/commissioning.yaml` and regenerate the shell export using Phase 0; a temporary shell override alone
+is lost on reload. Do not print passwords or tokens.
+
+```console
+nc -vz -G 5 "$PNAS_MANAGEMENT_IP" 22
+nc -vz -G 5 "$PNAS_SERVICE_IP" 22
+```
+
+Management port 22 must succeed. A timeout occurs before key authentication; inspect
+IP reachability, SSH service status/binding, and network filtering. `Permission denied
+(publickey)` instead means SSH was reached: check the selected username and public key.
+The service-address port result depends on the intended SSH listener configuration.
+
+```console
+ssh -i ~/.ssh/pnas_commissioning_ed25519 -o IdentitiesOnly=yes \
+  "$PNAS_ADMIN_USER@$PNAS_MANAGEMENT_IP"
+```
+
+**Where:** TRUENAS SHELL (the new SSH session)
+
+```console
+whoami
+hostname
+id
+sudo -v
+sudo zfs list -o name,mountpoint,mounted
+```
+
+Expected username: `truenas_admin`. Verify the intended hostname and administrative
+role; enter the administrator password only at sudo's prompt. Test with a confirmed
+mounted data dataset, rather than assuming `/mnt/apps/pnas` already exists:
+
+```console
+printf 'temporary SSH test\n' | sudo tee /mnt/app-recovery/ssh-commissioning-test.txt
+sudo cat /mnt/app-recovery/ssh-commissioning-test.txt
+sudo rm /mnt/app-recovery/ssh-commissioning-test.txt
+```
+
+Expected readback: `temporary SSH test`. `No such file or directory` means a parent
+path is missing; it is not an SSH failure. Do not create `/mnt/apps` by hand if the
+pool is unmounted: that could write into the boot environment. Disable temporary SSH
+and remove commissioning access after completion.
 
 ### Step 8.2 — copy the repository
 
@@ -1252,65 +1388,206 @@ cd "/Users/sridharb/Documents/Personal Encrypted NAS"
 . ./.commissioning.env
 ```
 
-Create the destination below the `apps` dataset:
+Verify that `PNAS_NAS_REPO_PATH` is `/mnt/apps/pnas/repo` and the state path is
+`/mnt/app-recovery/hosting-revisions/pnas-state`.
+
+**Where:** TRUENAS SHELL (named administrator SSH session)
 
 ```console
-ssh "$PNAS_ADMIN_USER@$PNAS_MANAGEMENT_IP" \
-  "mkdir -p '$PNAS_NAS_REPO_PATH' '$PNAS_NAS_STATE_PATH'"
+findmnt -T /mnt/apps/pnas
+findmnt -T /mnt/app-recovery/hosting-revisions
 ```
 
-Copy the repository without caches, Git internals, or local virtual environments:
+Expected: mounted `apps` and `app-recovery` data datasets, not `boot-pool`. If the
+`apps/pnas` dataset is missing after rebuilding, create it through **Datasets** using
+the Phase 5 layout first. Then create only the repository directory and grant its owner
+write access for rsync:
 
 ```console
-rsync -a --delete \
+sudo mkdir -p /mnt/apps/pnas/repo
+sudo chown "$(id -u):$(id -g)" /mnt/apps/pnas/repo
+```
+
+**Where:** MAC TERMINAL
+
+Preview the transfer first; `--delete` removes destination files absent from the source.
+Review the destination carefully. The venv, observations, secrets, and state live outside
+this repository directory. Exclude local environment files and preserve NAS-specific
+app configuration on later transfers:
+
+```console
+rsync -an --delete \
+  -e 'ssh -i ~/.ssh/pnas_commissioning_ed25519 -o IdentitiesOnly=yes' \
   --exclude '.git/' --exclude '.venv/' --exclude '__pycache__/' \
   --exclude '.pytest_cache/' --exclude '.mypy_cache/' --exclude '.ruff_cache/' \
+  --exclude '.env' --exclude '.commissioning.env' \
   ./ "$PNAS_ADMIN_USER@$PNAS_MANAGEMENT_IP:$PNAS_NAS_REPO_PATH/"
 ```
 
-### Step 8.3 — install the CLI into a dataset-based virtual environment
+After reviewing the preview, repeat with `-a` instead of `-an`. This deliberately leaves
+`.commissioning.env` out of the transfer; Step 8.3.3 regenerates it on the NAS. Review
+any local secret files before transferring; secrets belong outside the repository.
+If SSH requests an account password, first test the explicit key command in Step 8.1.
+A private-key passphrase prompt is different from an account-password prompt. A file
+permission error after authentication requires destination ownership correction, not
+password login or passwordless sudo.
 
-**Where:** TRUENAS SHELL
+### Step 8.3 — install the CLI inside the commissioning container
 
-Run:
+**Where:** TRUENAS SHELL, then TRUENAS UI, then COMMISSIONING CONTAINER as labelled
+
+Host Python 3.11.9 cannot run this project (requires >=3.12). Do not create a host venv,
+install Python/OS packages on the NAS, or activate a container-created venv on the host.
+The procedure below replaces the old dataset-based **host** venv section.
+
+#### Step 8.3.1 — prepare the container's data directories
+
+**Where:** TRUENAS SHELL (named administrator SSH session)
+
+Verify the repository root and backing filesystems:
 
 ```console
+ls -l /mnt/apps/pnas/repo/pyproject.toml
+findmnt -T /mnt/apps/pnas/repo
+findmnt -T /mnt/apps/secrets
+findmnt -T /mnt/apps/app-config
+findmnt -T /mnt/app-recovery/hosting-revisions
+```
+
+All paths must resolve to the intended mounted data pools. Recreate missing Phase 5
+child datasets through the UI before proceeding. Prepare the persistent environment,
+secret, and revision directories with elevation, without changing whole-pool ownership:
+
+```console
+sudo mkdir -p /mnt/apps/pnas/runtime /mnt/apps/secrets/manager \
+  /mnt/app-recovery/hosting-revisions/pnas-state
+sudo chmod 700 /mnt/apps/pnas/runtime /mnt/apps/secrets \
+  /mnt/apps/secrets/manager /mnt/app-recovery/hosting-revisions/pnas-state
+```
+
+#### Step 8.3.2 — create or update the commissioning Custom App
+
+**Where:** TRUENAS UI
+
+Confirm **Apps Service Running** (Step 5.3). Open **Apps > Discover Apps > ⋮ beside
+Custom App > Install via YAML**, name it `pnas-commissioning`, and paste the following.
+If it already exists, edit its YAML instead of installing a duplicate.
+
+```yaml
+services:
+  commissioning:
+    image: python:3.12-slim
+    command: ["sleep", "infinity"]
+    restart: unless-stopped
+    working_dir: /mnt/apps/pnas/repo
+    volumes:
+      - type: bind
+        source: /mnt/apps/pnas
+        target: /mnt/apps/pnas
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/apps/secrets
+        target: /mnt/apps/secrets
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/apps/app-config
+        target: /mnt/apps/app-config
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/app-recovery/hosting-revisions
+        target: /mnt/app-recovery/hosting-revisions
+        bind:
+          create_host_path: false
+```
+
+Save and wait for Running. These writable mounts intentionally allow commissioning
+configuration/secrets/state creation; their targets match the NAS paths so later API
+payloads still refer to host paths. Do not mount the Docker socket, `/dev`, the boot
+filesystem, or all of `/mnt`. No published ports or privileged mode are needed.
+The root user in this container can change these mounted datasets; limit its use to
+commissioning and stop the app when finished.
+
+This supersedes the earlier read-only `/workspace` mount. The actual repository is
+`/mnt/apps/pnas/repo`, not `/mnt/apps/pnas`. The existing `/opt/pnas-venv` environment
+is disposable; the replacement below is persistent under the `pnas` dataset.
+
+[TrueNAS YAML Custom Apps](https://apps.truenas.com/managing-apps/installing-custom-apps/)
+
+#### Step 8.3.3 — bootstrap and verify the CLI (restart here)
+
+**Where:** COMMISSIONING CONTAINER
+
+Open **Apps > pnas-commissioning > Shell**, select container `commissioning`, and choose
+**`/bin/bash`**. Do not run these commands in Mac Terminal or the host SSH session.
+Packages in the first block are installed only into the container, never the NAS OS.
+They satisfy the runbook's shell commands and the deployment gate's tool checks.
+
+```console
+python --version
+ls -l /mnt/apps/pnas/repo/pyproject.toml
+apt-get update && apt-get install -y --no-install-recommends \
+  bash ca-certificates curl git openssh-client rsync openssl dnsutils
+```
+
+Stop if Python is below 3.12 or package installation fails. Then run one block at a time:
+
+```console
+python -m venv /mnt/apps/pnas/runtime/venv
+. /mnt/apps/pnas/runtime/venv/bin/activate
 cd /mnt/apps/pnas/repo
+python -m pip install --no-cache-dir .
 ```
 
 ```console
-python3 --version
+/mnt/apps/pnas/runtime/venv/bin/pnasctl --help
 ```
 
-Expected: Python 3.12 or newer. If Python or `venv` is unavailable, stop; do not install
-an OS package. Use a supported management container instead.
+Expected: help and a list of commands, without an error. `--help/opt/...` means two
+commands were pasted together; press Ctrl+C and enter only the help command on a fresh
+line. `pnasctl: not found` usually means the venv is inactive or pip installation failed.
+Use the absolute path above to separate PATH issues from installation errors.
 
-```console
-python3 -m venv /mnt/apps/pnas/venv
-```
-
-```console
-. /mnt/apps/pnas/venv/bin/activate
-```
+Regenerate the non-secret shell values from the copied canonical commissioning file:
 
 ```console
-python -m pip install --no-cache-dir -e .
+umask 077
+if [ ! -e .commissioning.env ]; then
+  pnasctl commissioning-export-shell \
+    --values config/commissioning.yaml --output .commissioning.env
+fi
+. ./.commissioning.env
 ```
 
+The export command refuses to overwrite an existing file. If an existing export is
+stale, first correct `config/commissioning.yaml`, preserve the old export under a new
+backup name, then rerun the export. Do not continue with unknown or stale values. Confirm management/user/repository values
+match Step 8.1 before proceeding. Never copy private keys or tokens into this export.
+
+For each new container shell:
+
 ```console
-pnasctl --help
+. /mnt/apps/pnas/runtime/venv/bin/activate
+cd /mnt/apps/pnas/repo
+. ./.commissioning.env
 ```
+
+After container recreation, repeat the container package-install block. The venv and
+repository persist; reinstall the project after source changes, because this is a
+regular installation rather than an editable installation. Rebuild the venv if the
+container Python version/ABI changes. Never execute it using host Python.
+
+**Restart gate:** clean CLI help works, required tools are installed, writable mounts
+are present, and commissioning values match the live NAS. Continue at **Step 8.4**.
 
 ### Step 8.4 — create application directories and environment files
 
 **Where:** TRUENAS SHELL
 
 ```console
-umask 077
-```
-
-```console
-mkdir -p /mnt/apps/secrets/manager \
+sudo mkdir -p /mnt/apps/secrets/manager \
   /mnt/apps/app-config/nextcloud/custom_apps \
   /mnt/apps/app-config/manager/state \
   /mnt/apps/app-config/proxy/data \
@@ -1325,36 +1602,55 @@ The manager container runs as numeric user `10001`. Give only its state director
 that account; do not change ownership of the whole `apps` dataset:
 
 ```console
-chown -R 10001:10001 /mnt/apps/app-config/manager/state
-chmod 700 /mnt/apps/app-config/manager/state
+sudo chown 10001:10001 /mnt/apps/app-config/manager/state
+sudo chmod 700 /mnt/apps/app-config/manager/state
 ```
 
+**Where:** COMMISSIONING CONTAINER (activate the venv and enter the repository as in 8.3.3)
+
+Create environment files only if absent. On a restart, retain existing edited files;
+do not overwrite credentials or production settings with examples.
+
 ```console
-cp compose/nextcloud/env.example compose/nextcloud/.env
-cp compose/immich/env.example compose/immich/.env
-cp compose/manager/env.example compose/manager/.env
-cp compose/proxy/env.example compose/proxy/.env
+umask 077
+cd /mnt/apps/pnas/repo
+for app in nextcloud immich manager proxy; do
+  if [ ! -e "compose/$app/.env" ]; then
+    cp "compose/$app/env.example" "compose/$app/.env"
+  fi
+done
 chmod 600 compose/nextcloud/.env compose/immich/.env \
   compose/manager/.env compose/proxy/.env
 ```
 
 ### Step 8.5 — create database and manager secrets
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
-Generate three alphanumeric database/cache passwords without printing them:
+Generate missing database/cache passwords without printing them. Existing files are
+retained on restart. `noclobber` protects against accidental overwrites and `umask`
+keeps newly created files private:
 
 ```console
-openssl rand -hex 32 > /mnt/apps/secrets/nextcloud-db-password
-openssl rand -hex 32 > /mnt/apps/secrets/nextcloud-redis-password
-openssl rand -hex 32 > /mnt/apps/secrets/immich-db-password
-chmod 600 /mnt/apps/secrets/nextcloud-db-password \
-  /mnt/apps/secrets/nextcloud-redis-password \
-  /mnt/apps/secrets/immich-db-password
+umask 077
+(
+  set -e
+  set -o noclobber
+  for name in nextcloud-db-password nextcloud-redis-password immich-db-password; do
+    if [ ! -e "/mnt/apps/secrets/$name" ]; then
+      openssl rand -hex 32 > "/mnt/apps/secrets/$name"
+    fi
+    test -s "/mnt/apps/secrets/$name"
+    chmod 600 "/mnt/apps/secrets/$name"
+  done
+)
 ```
 
+Stop if the block fails. Do not display secret file contents.
+
 Create Operations Manager password, session key, and TOTP material through hidden
-prompts:
+prompts only on first setup. If these files already exist, retain them and verify the
+existing enrollment rather than regenerating secrets:
 
 ```console
 pnasctl manager-init-secrets --output-dir /mnt/apps/secrets/manager
@@ -1363,8 +1659,8 @@ pnasctl manager-init-secrets --output-dir /mnt/apps/secrets/manager
 Open the mode-0600 `manager-totp-enrollment-uri` only on a trusted device, enroll it in
 an authenticator, and store recovery material offline.
 
-**PASS gate 8:** `pnasctl --help` works from the NAS venv; environment files exist; secret
-files are 0600; no secret appeared on screen or in shell history.
+**PASS gate 8:** `pnasctl --help` works inside the commissioning container; environment
+files exist; secret files are 0600; no secret appeared on screen or in shell history.
 
 ## Phase 9 — install and test Tailscale
 
@@ -1394,13 +1690,13 @@ and approve the `family-nas` device. Record its `100.64.0.0/10` address.
 
 ### Step 9.3 — update production hosting configuration
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
-Activate the NAS environment and load non-secret values:
+Activate the container environment and load non-secret values:
 
 ```console
 cd /mnt/apps/pnas/repo
-. /mnt/apps/pnas/venv/bin/activate
+. /mnt/apps/pnas/runtime/venv/bin/activate
 . ./.commissioning.env
 ```
 
@@ -1432,7 +1728,7 @@ Expected: the NAS is online. `direct` is preferred; a DERP relay is encrypted bu
 
 To produce NAS-self diagnostic JSON, open the Tailscale app's workload shell in the
 TrueNAS UI and run `tailscale status --json`. Save that output as
-`/mnt/apps/pnas/observations/tailscale-status.json` through the administrative dataset
+`/mnt/apps/pnas/observations/tailscale-status.json` through the commissioning container
 shell. Do not use JSON captured from the remote laptop because its `Self` identity is
 the laptop, not the NAS.
 
@@ -1459,7 +1755,7 @@ nameserver, and DNSSEC setting. Confirm unrelated email/web services currently w
 5. Wait until Cloudflare reports **Active**.
 6. After stable operation, enable DNSSEC and verify the DS chain.
 
-**Where:** TRUENAS SHELL
+**Where:** MAC TERMINAL
 
 Verify using two independent resolvers:
 
@@ -1484,7 +1780,7 @@ Create a custom token limited to `cloudpathz.com` with only:
 
 Do not use a Global API Key. Copy the token once.
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
 Use a hidden prompt so the token never appears in history or on screen:
 
@@ -1522,7 +1818,7 @@ Expected: no routable NAS A or AAAA answer.
 4. Set an expiration/rotation date appropriate for household operations.
 5. Copy the key before closing the one-time dialog.
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
 Store it through a hidden prompt:
 
@@ -1550,7 +1846,7 @@ If the installed maintenance release does not expose an APPS_WRITE custom privil
 the UI, stop and review the installed API/RBAC documentation. Do not silently substitute
 a permanent Full Admin key.
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
 ```console
 read -r -s -p 'Paste temporary deployment API key: ' PNAS_DEPLOY_KEY; printf '\n'
@@ -1564,11 +1860,11 @@ unset PNAS_DEPLOY_KEY
 
 ### Step 11.3 — deployment file gate
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
 ```console
 cd /mnt/apps/pnas/repo
-. /mnt/apps/pnas/venv/bin/activate
+. /mnt/apps/pnas/runtime/venv/bin/activate
 pnasctl commissioning-check --stage deployment \
   --project-root /mnt/apps/pnas/repo \
   --config config/pnas.yaml \
@@ -1585,13 +1881,13 @@ TrueNAS-managed Custom App named `pnas-services`. It does not run Docker directl
 
 ### Step 12.1 — configure private hosting
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
 If this is a new shell, reload values and enter the already recorded Tailscale IP:
 
 ```console
 cd /mnt/apps/pnas/repo
-. /mnt/apps/pnas/venv/bin/activate
+. /mnt/apps/pnas/runtime/venv/bin/activate
 . ./.commissioning.env
 read -r -p 'Enter the family-nas Tailscale IP: ' PNAS_TAILSCALE_IP
 ```
@@ -1617,7 +1913,7 @@ pnasctl --config config/pnas.yaml --state-dir "$PNAS_NAS_STATE_PATH" \
 
 ### Step 12.2 — test Cloudflare access
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
 The first command is read-only:
 
@@ -1638,7 +1934,7 @@ Expected: token active, zone visible, temporary record created/verified/deleted.
 
 ### Step 12.3 — create and approve the revision
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
 ```console
 pnasctl --config config/pnas.yaml --state-dir "$PNAS_NAS_STATE_PATH" hosting-plan
@@ -1663,7 +1959,7 @@ pnasctl --config config/pnas.yaml --state-dir "$PNAS_NAS_STATE_PATH" \
 
 ### Step 12.4 — preview the TrueNAS API deployment
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
 ```console
 pnasctl --config config/pnas.yaml --state-dir "$PNAS_NAS_STATE_PATH" \
@@ -1688,7 +1984,7 @@ listeners, and Caddy. Expected networks include separate Nextcloud/Immich backen
 
 ### Step 12.5 — execute through the supported API
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
 ```console
 read -r -p 'Paste the exact DEPLOY PRIVATE HOSTING confirmation: ' PNAS_DEPLOY_CONFIRMATION
@@ -1795,7 +2091,7 @@ staging endpoints respond; public DNS and WAN expose nothing.
 
 ### Step 14.1 — create a fresh production revision
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
 Repeat hosting configuration with production ACME:
 
@@ -1850,6 +2146,8 @@ openssl s_client -connect "$PNAS_SERVICE_IP:443" \
   -servername cloud.nas.cloudpathz.com </dev/null
 ```
 
+**Where:** COMMISSIONING CONTAINER
+
 Run the built-in check:
 
 ```console
@@ -1866,7 +2164,7 @@ warning.
 
 Delete or revoke `initial-pnas-custom-app-deployment` after the accepted deployment.
 
-**Where:** TRUENAS SHELL
+**Where:** COMMISSIONING CONTAINER
 
 Remove only the now-revoked local copy:
 
@@ -1953,7 +2251,9 @@ unexpected resilver, and no critical alert.
 **Where:** TRUENAS UI
 
 Stop temporary SSH if it is no longer needed and remove SSH/shell access from accounts
-that do not require it. Confirm no deployment API key remains active.
+that do not require it. Confirm no deployment API key remains active. Stop the
+`pnas-commissioning` app after commissioning; it has writable access to secrets and
+configuration. Retain its dataset files for a reviewed future maintenance session.
 
 **PASS gate 16:** the reboot, snapshot restore, offsite restore, encryption-key checks,
 final configuration export, and access-removal checks all pass.
